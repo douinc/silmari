@@ -39,4 +39,4 @@ platform. Implementation spec: [`docs/spec.md`](docs/spec.md).
 
 ## License
 
-Apache-2.0 (planned).
+Apache-2.0 — Copyright 2026 Dou Inc. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
