@@ -1,5 +1,6 @@
 import queue
 
+import httpx
 import silmari_runtime.sinks as sinks_mod
 from silmari_runtime.sinks import EventBus, Subscription, SubscriptionStore, deliver_webhooks
 
@@ -41,14 +42,53 @@ def test_deliver_webhooks_posts_and_swallows_errors(monkeypatch):
     assert posted == [("http://hook", {"run_id": "r1"})]
 
 
-def test_deliver_webhooks_env_expansion(monkeypatch):
-    monkeypatch.setenv("HOOK_TOKEN", "secret123")
+def test_deliver_webhooks_expands_allowlisted_env(monkeypatch):
+    monkeypatch.setenv("WEBHOOK_TOKEN", "secret123")
     captured = []
     monkeypatch.setattr(sinks_mod.httpx, "post", lambda url, **kw: captured.append(url))
     deliver_webhooks(
-        {"x": 1}, [Subscription(id="s", bot_id="b", type="webhook", url="http://h/${HOOK_TOKEN}")]
+        {"x": 1}, [Subscription(id="s", bot_id="b", type="webhook", url="http://h/${WEBHOOK_TOKEN}")]
     )
     assert captured == ["http://h/secret123"]
+
+
+def test_deliver_webhooks_does_not_expand_non_allowlisted_env(monkeypatch):
+    monkeypatch.setenv("DB_PASSWORD", "supersecret")
+    captured = []
+    monkeypatch.setattr(sinks_mod.httpx, "post", lambda url, **kw: captured.append(url))
+    deliver_webhooks(
+        {"x": 1}, [Subscription(id="s", bot_id="b", type="webhook", url="http://h/${DB_PASSWORD}")]
+    )
+    assert captured == ["http://h/${DB_PASSWORD}"]  # secret never interpolated
+    assert "supersecret" not in captured[0]
+
+
+def test_deliver_webhooks_bad_url_does_not_raise_or_block_others(monkeypatch):
+    calls = []
+
+    def fake_post(url, **kw):
+        if "bad" in url:
+            raise httpx.InvalidURL("bad")  # not an HTTPError
+        calls.append(url)
+
+    monkeypatch.setattr(sinks_mod.httpx, "post", fake_post)
+    deliver_webhooks(
+        {"x": 1},
+        [
+            Subscription(id="bad", bot_id="b", type="webhook", url="http://bad"),
+            Subscription(id="good", bot_id="b", type="webhook", url="http://good"),
+        ],
+    )
+    assert calls == ["http://good"]  # bad one was swallowed and did not abort the rest
+
+
+def test_deliver_webhooks_skips_non_http_scheme(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sinks_mod.httpx, "post", lambda url, **kw: calls.append(url))
+    deliver_webhooks(
+        {"x": 1}, [Subscription(id="s", bot_id="b", type="webhook", url="file:///etc/passwd")]
+    )
+    assert calls == []  # non-http(s) scheme skipped (no SSRF to file://)
 
 
 def test_unsubscribe_is_idempotent():

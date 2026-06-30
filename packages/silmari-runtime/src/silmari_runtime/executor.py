@@ -156,17 +156,21 @@ def _begin_run(
             )
         subs = _webhook_subs(manifest, subscriptions)
         if subs:
-            deliver_webhooks(
-                {
-                    "bot_id": manifest.bot_id,
-                    "run_id": run_id,
-                    "as_of": as_of,
-                    "summary": stored.summary,
-                    "data": stored.data,
-                    "metadata": stored.metadata,
-                },
-                subs,
-            )
+            payload = {
+                "bot_id": manifest.bot_id,
+                "run_id": run_id,
+                "as_of": as_of,
+                "summary": stored.summary,
+                "data": stored.data,
+                "metadata": stored.metadata,
+            }
+            # Deliver off the run thread: a slow webhook must not stall a scheduler/inline run.
+            threading.Thread(
+                target=deliver_webhooks,
+                args=(payload, subs),
+                name=f"webhooks-{run_id}",
+                daemon=True,
+            ).start()
         return stored
 
     return running, execute
@@ -207,8 +211,8 @@ def start_run(
     def _worker() -> None:
         try:
             execute()
-        except Exception:
-            pass  # failure already recorded on the run row
+        except Exception as exc:  # failure already recorded on the run row; log for visibility
+            _log.warning("run %s ended with an error: %s", running.run_id, exc)
 
     threading.Thread(target=_worker, name=f"run-{running.run_id}", daemon=True).start()
     return running

@@ -83,19 +83,32 @@ class SubscriptionStore:
 
 
 _ENV_RE = re.compile(r"\$\{([A-Z0-9_]+)\}")
+# Only WEBHOOK_*-prefixed env vars may be interpolated into a webhook URL, so a subscription can
+# carry a per-hook token without being able to exfiltrate arbitrary server secrets via ${...}.
+_WEBHOOK_ENV_PREFIX = "WEBHOOK_"
 
 
 def _resolve(url: str) -> str:
-    """Expand ``${ENV_VAR}`` placeholders in a webhook URL (secrets stay out of the manifest)."""
-    return _ENV_RE.sub(lambda m: os.environ.get(m.group(1), ""), url)
+    def expand(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name.startswith(_WEBHOOK_ENV_PREFIX):
+            return os.environ.get(name, "")
+        return match.group(0)  # leave non-allowlisted placeholders literal; never expand secrets
+
+    return _ENV_RE.sub(expand, url)
 
 
 def deliver_webhooks(payload: dict[str, Any], subscriptions: list[Subscription]) -> None:
-    """POST ``payload`` to each webhook subscription. Errors are logged, never raised."""
+    """POST ``payload`` to each webhook subscription. Best-effort: errors are logged, never raised,
+    and one bad subscription never blocks delivery to the rest."""
     for sub in subscriptions:
         if sub.type != "webhook" or not sub.url:
             continue
+        url = _resolve(sub.url)
+        if not url.startswith(("http://", "https://")):
+            _log.warning("skipping webhook %s: unsupported URL scheme", sub.name or sub.id)
+            continue
         try:
-            httpx.post(_resolve(sub.url), json=payload, timeout=15)
-        except httpx.HTTPError as exc:
+            httpx.post(url, json=payload, timeout=15)
+        except Exception as exc:  # noqa: BLE001 — InvalidURL etc. are not HTTPError; never raise
             _log.warning("webhook delivery to %s failed: %s", sub.name or sub.id, exc)

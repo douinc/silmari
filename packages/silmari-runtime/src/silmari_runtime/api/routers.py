@@ -85,14 +85,17 @@ def trigger_run(bot_id: str, request: Request) -> dict[str, Any]:
     source = request.app.state.source
     if source is None:
         raise HTTPException(503, "no data source configured")
-    run = start_run(
-        registry[bot_id],
-        source,
-        request.app.state.store,
-        trigger="manual",
-        bus=request.app.state.bus,
-        subscriptions=request.app.state.subscriptions,
-    )
+    try:
+        run = start_run(
+            registry[bot_id],
+            source,
+            request.app.state.store,
+            trigger="manual",
+            bus=request.app.state.bus,
+            subscriptions=request.app.state.subscriptions,
+        )
+    except ValueError as exc:  # e.g. unscoped bot with no explicit opt-in
+        raise HTTPException(400, str(exc)) from exc
     return {"bot_id": run.bot_id, "run_id": run.run_id, "as_of": run.as_of, "status": run.status}
 
 
@@ -103,7 +106,7 @@ runs_router = APIRouter(prefix="/v1/runs", tags=["runs"])
 
 @runs_router.get("")
 def list_runs(request: Request, limit: int = 50) -> dict[str, Any]:
-    runs = request.app.state.store.recent(limit=min(limit, 200))
+    runs = request.app.state.store.recent(limit=max(1, min(limit, 200)))
     return {
         "runs": [
             {
@@ -190,6 +193,11 @@ def list_cases(bot_id: str, run_id: str, request: Request) -> dict[str, Any]:
 def decide(
     bot_id: str, run_id: str, case_id: str, body: DecisionIn, request: Request
 ) -> dict[str, Any]:
+    run = request.app.state.store.get(bot_id, run_id)
+    if run is None:
+        raise HTTPException(404, f"unknown run {run_id!r}")
+    if case_id not in {cid for cid, _score, _record in build_cases(run.data)}:
+        raise HTTPException(404, f"unknown case {case_id!r} for run {run_id!r}")
     reviews = request.app.state.reviews
     try:
         decision = reviews.set_decision(
@@ -197,15 +205,13 @@ def decide(
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    run = request.app.state.store.get(bot_id, run_id)
-    total = len(run.data) if run is not None else None
     return {
         "case_id": case_id,
         "decision": decision.decision,
         "note": decision.note,
         "reviewer": decision.reviewer,
         "updated_at": decision.updated_at,
-        "tally": reviews.tally(bot_id, run_id, total_cases=total),
+        "tally": reviews.tally(bot_id, run_id, total_cases=len(run.data)),
     }
 
 
@@ -219,6 +225,8 @@ def tuning(bot_id: str, request: Request) -> dict[str, Any]:
 
 subscriptions_router = APIRouter(prefix="/v1/bots/{bot_id}/subscriptions", tags=["subscriptions"])
 
+_ALLOWED_SINK_TYPES = {"webhook", "sse", "file", "email"}
+
 
 class SubscriptionIn(BaseModel):
     type: str
@@ -228,6 +236,10 @@ class SubscriptionIn(BaseModel):
 
 @subscriptions_router.post("")
 def add_subscription(bot_id: str, body: SubscriptionIn, request: Request) -> dict[str, Any]:
+    if body.type not in _ALLOWED_SINK_TYPES:
+        raise HTTPException(400, f"unsupported subscription type {body.type!r}")
+    if body.type == "webhook" and not (body.url and body.url.startswith(("http://", "https://"))):
+        raise HTTPException(400, "a webhook subscription requires an http(s) url")
     sub = Subscription(
         id=uuid.uuid4().hex[:12], bot_id=bot_id, type=body.type, url=body.url, name=body.name
     )

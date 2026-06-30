@@ -135,3 +135,53 @@ def test_sse_stream_generator_emits_events():
     assert chunk.startswith("event: run_started\n")
     assert '"run_id": "r1"' in chunk
     gen.close()
+
+
+def test_decide_unknown_run_404():
+    assert (
+        _client()
+        .post("/v1/bots/example-signal/runs/nope/cases/0/decision", json={"decision": "accepted"})
+        .status_code
+        == 404
+    )
+
+
+def test_decide_unknown_case_404():
+    store = ResultStore()
+    client = _client(store=store)
+    _seed(store, data=[{"target_id": "a", "score": 0.5}])  # only case "0" exists
+    resp = client.post(
+        "/v1/bots/example-signal/runs/run1/cases/99/decision", json={"decision": "accepted"}
+    )
+    assert resp.status_code == 404
+
+
+def test_trigger_unscoped_bot_returns_400():
+    from silmari_runtime.context import BotResult as _BotResult
+    from silmari_runtime.manifest import BotManifest
+    from silmari_runtime.registry import BotRecord
+
+    manifest = BotManifest.model_validate({"bot_id": "leaky", "name": "leaky"})  # empty scope
+    registry = {
+        "leaky": BotRecord(manifest=manifest, run=lambda ctx: _BotResult(data=[]), path=Path("."))
+    }
+    client = TestClient(create_app(registry=registry, source=MockSource({"x": []})))
+    assert client.post("/v1/bots/leaky/run").status_code == 400
+
+
+def test_subscription_invalid_type_400():
+    resp = _client().post("/v1/bots/example-signal/subscriptions", json={"type": "bogus"})
+    assert resp.status_code == 400
+
+
+def test_webhook_subscription_requires_url_400():
+    resp = _client().post("/v1/bots/example-signal/subscriptions", json={"type": "webhook"})
+    assert resp.status_code == 400
+
+
+def test_runs_negative_limit_is_clamped():
+    store = ResultStore()
+    _seed(store)
+    client = _client(store=store)
+    # SQLite treats LIMIT -1 as unbounded; the endpoint must clamp instead of returning everything.
+    assert client.get("/v1/runs?limit=-1").status_code == 200

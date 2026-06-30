@@ -36,11 +36,15 @@ def create_app(
     bus: EventBus | None = None,
     source: DataSource | None = None,
     bots_dir: str = "bots",
+    cors_origins: list[str] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Silmari", version="0.1.0")
-    app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
-    )
+    # No CORS by default (same-origin only). The API is unauthenticated (see SECURITY.md) — pass an
+    # explicit allow-list to enable cross-origin access, and deploy it behind auth.
+    if cors_origins:
+        app.add_middleware(
+            CORSMiddleware, allow_origins=cors_origins, allow_methods=["*"], allow_headers=["*"]
+        )
 
     app.state.bots_dir = bots_dir
     app.state.registry = registry if registry is not None else load_registry(bots_dir)

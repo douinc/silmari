@@ -22,6 +22,22 @@ guards; perfect PII detection (redaction is best-effort + a regex floor); protec
 malicious *operator* who edits the policy. **Always provision a least-privilege, read-only
 database role** — no application-layer guard beats a database that physically cannot write.
 
+## The HTTP API is unauthenticated
+
+The optional runtime API (`silmari_runtime.api`) ships with **no authentication** and no CORS by
+default. It exposes read access to run results (review-priority signals) and state-changing
+endpoints (`POST /run`, review decisions, subscription register/delete, registry reload). Treat it
+as a trusted-network service:
+
+- Bind to loopback or a private interface, and put it behind a reverse proxy that enforces auth
+  (API key / mTLS / SSO) before exposing it.
+- Enable CORS only via `create_app(cors_origins=[...])` with an explicit allow-list — never `*`.
+- **Webhook subscriptions are privileged.** A subscription URL is fetched server-side on every run
+  completion (an SSRF surface) and receives the full run payload. Silmari restricts the scheme to
+  `http(s)` and only interpolates `${WEBHOOK_*}` env vars (so other server secrets cannot be
+  exfiltrated via `${...}`), but it does not enforce a destination allow-list — restrict outbound
+  egress at the network layer and gate subscription registration behind auth.
+
 ## Responsible use
 
 - Use a dedicated **read-only** database role/credential.
