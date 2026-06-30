@@ -10,6 +10,7 @@ from .agent.register import BotProposal, propose_bot
 from .context import BotResult, Context
 from .executor import run_bot, start_run
 from .manifest import BotManifest
+from .prediction import prediction, prediction_result
 from .proposals import Proposal, ProposalStore
 from .registry import BotRecord, load_bot, load_registry
 from .review import ReviewDecision, ReviewStore, TuningReport, tuning_report
@@ -67,6 +68,8 @@ __all__ = [
     "load_bot",
     "load_registry",
     "merge_ruleset",
+    "prediction",
+    "prediction_result",
     "propose_bot",
     "result",
     "run_bot",

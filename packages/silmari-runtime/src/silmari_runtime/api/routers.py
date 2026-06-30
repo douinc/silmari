@@ -271,3 +271,64 @@ def reload_registry(request: Request) -> dict[str, Any]:
     request.app.state.registry = load_registry(request.app.state.bots_dir)
     registry = request.app.state.registry
     return {"reloaded": True, "bot_count": len(registry), "bot_ids": sorted(registry)}
+
+
+# ----------------------------------------------------------------- data (read-only browser)
+
+# A generic, read-only browser over the configured DataSource: list tables, inspect a table's
+# schema, sample masked rows, column stats, and run an ad-hoc query. Everything goes through the
+# DataSource's read-only guard + audit; query results are masked. The API is unauthenticated
+# (see SECURITY.md) — deploy behind auth and point it at a read-only DB role.
+
+data_router = APIRouter(prefix="/v1/data", tags=["data"])
+
+
+def _require_source(request: Request) -> Any:
+    source = request.app.state.source
+    if source is None:
+        raise HTTPException(503, "no data source configured")
+    return source
+
+
+@data_router.get("/tables")
+def list_tables(request: Request) -> dict[str, Any]:
+    return {"tables": _require_source(request).schema()}
+
+
+@data_router.get("/tables/{table}")
+def table_schema(table: str, request: Request) -> dict[str, Any]:
+    return {"table": table, "schema": _require_source(request).schema(table)}
+
+
+@data_router.get("/tables/{table}/sample")
+def table_sample(table: str, request: Request, n: int = 10) -> dict[str, Any]:
+    source = _require_source(request)
+    try:
+        rows = source.sample(table, max(1, min(int(n), 100)))
+    except Exception as exc:  # noqa: BLE001 — user-supplied table → client error, audited
+        raise HTTPException(400, str(exc)) from exc
+    return {"table": table, "rows": rows}
+
+
+@data_router.get("/tables/{table}/columns/{column}/stats")
+def column_stats(table: str, column: str, request: Request) -> dict[str, Any]:
+    source = _require_source(request)
+    try:
+        rows = source.stats(table, column)
+    except Exception as exc:  # noqa: BLE001 — user-supplied table/column → client error, audited
+        raise HTTPException(400, str(exc)) from exc
+    return {"table": table, "column": column, "stats": rows}
+
+
+class QueryRequest(BaseModel):
+    sql: str
+
+
+@data_router.post("/query")
+def run_query(body: QueryRequest, request: Request) -> dict[str, Any]:
+    source = _require_source(request)
+    try:
+        rows = [source.masking.mask(row) for row in source.query(body.sql)]
+    except Exception as exc:  # noqa: BLE001 — read-only/scope violation or SQL error → client error
+        raise HTTPException(400, str(exc)) from exc
+    return {"rows": rows}

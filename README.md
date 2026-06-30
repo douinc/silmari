@@ -38,6 +38,7 @@ model, and keep no audit trail. Silmari is **safe by default**:
 ```bash
 # from PyPI (each package is independently installable)
 pip install silmari-core          # just the governance library
+pip install 'silmari-core[postgres]'  # + the Postgres adapter (psycopg)
 pip install silmari-runtime       # the full framework (depends on core)
 
 # from source (uv workspace)

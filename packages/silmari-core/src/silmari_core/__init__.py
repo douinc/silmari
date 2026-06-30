@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from .adapters import DuckDBSource, SQLiteSource, connect
+from .adapters import DuckDBSource, PostgresSource, SQLiteSource, connect
 from .audit import AuditLog
 from .config import Settings, get_settings
 from .errors import ReadOnlyViolation, ScopeViolation
@@ -29,6 +29,7 @@ __all__ = [
     "MockSource",
     "NoFilter",
     "NoMasking",
+    "PostgresSource",
     "ReadOnlyViolation",
     "RegexFilter",
     "SQLiteSource",

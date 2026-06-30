@@ -79,6 +79,7 @@ def result(
     logic: dict[str, Any] | None = None,
     extra_metadata: dict[str, Any] | None = None,
     summary: str | None = None,
+    kind: str = "signal",
 ) -> BotResult:
     """Frame a list of Signals into a BotResult (filter by threshold, sort desc, attach note)."""
     all_signals = list(signals)
@@ -91,7 +92,7 @@ def result(
         "label": label,
         "cohort_size": len(all_signals),
         "flagged": len(flagged),
-        "kind": "signal",
+        "kind": kind,
     }
     if threshold is not None:
         metadata["threshold"] = threshold
@@ -101,6 +102,7 @@ def result(
         metadata.update(extra_metadata)
 
     if summary is None:
-        summary = f"{label}: {len(flagged)} signal(s) (as of {as_of or 'n/a'}; {NOT_A_VERDICT})"
+        noun = "prediction" if kind == "prediction" else "signal"
+        summary = f"{label}: {len(flagged)} {noun}(s) (as of {as_of or 'n/a'}; {NOT_A_VERDICT})"
 
     return BotResult(data=[s.as_record() for s in flagged], metadata=metadata, summary=summary)
