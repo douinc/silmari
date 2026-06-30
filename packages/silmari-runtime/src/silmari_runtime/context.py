@@ -3,6 +3,10 @@
 A bot author writes ``def run(context: Context) -> BotResult``. The platform fills ``Context``
 with a **scoped, audited** data source (so the bot can only read its declared tables) and reads
 ``BotResult.data`` for downstream delivery.
+
+Trust model: a bot's ``pipeline.py`` is executed as trusted code, so ``source`` scoping is a
+**guardrail against accidental over-reads, not a sandbox** against hostile code (a bot could
+import and open its own unscoped source). Run only reviewed/approved bot code.
 """
 
 from __future__ import annotations

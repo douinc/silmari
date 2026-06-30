@@ -21,6 +21,8 @@ class DataAccessSpec(BaseModel):
     tables: list[str] = Field(default_factory=list)
     scope: str = ""
     as_of: str = "D-1"
+    unscoped: bool = False
+    """Opt in to full read access when ``tables`` is empty (otherwise the run is rejected)."""
 
 
 class Output(BaseModel):
@@ -41,7 +43,7 @@ class Audit(BaseModel):
 
 
 class BotManifest(BaseModel):
-    bot_id: str
+    bot_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]*$")
     name: str
     version: str = "0.1.0"
     created_by: str | None = None

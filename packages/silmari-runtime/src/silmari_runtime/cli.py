@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -14,16 +15,17 @@ from .registry import load_registry
 from .store import ResultStore
 
 
-def _demo_source_url() -> str:
-    """Seed a throwaway DuckDB with the demo schema so `silmari run example-signal` just works."""
+def _demo_source() -> tuple[str, str]:
+    """Seed a throwaway DuckDB with the demo schema; returns (url, tmpdir) so it can be removed."""
     import duckdb
 
-    path = str(Path(tempfile.mkdtemp(prefix="silmari-")) / "demo.duckdb")
+    tmpdir = tempfile.mkdtemp(prefix="silmari-")
+    path = str(Path(tmpdir) / "demo.duckdb")
     con = duckdb.connect(path)
     con.execute("CREATE TABLE orders(id INTEGER, total INTEGER)")
     con.execute("INSERT INTO orders VALUES (1, 100), (2, 50)")
     con.close()
-    return f"duckdb:///{path}"
+    return f"duckdb:///{path}", tmpdir
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -31,13 +33,23 @@ def _run(args: argparse.Namespace) -> int:
     if args.bot_id not in registry:
         print(f"unknown bot: {args.bot_id} (available: {sorted(registry)})", file=sys.stderr)
         return 1
-    source = connect(args.source or _demo_source_url())
-    store = ResultStore(args.store)
-    run = run_bot(registry[args.bot_id], source, store, trigger="manual")
-    print(f"run {run.run_id}: {run.status} — {len(run.data)} signal(s)")
-    if run.summary:
-        print(run.summary)
-    return 0
+    demo_dir: str | None = None
+    if args.source is None:
+        source_url, demo_dir = _demo_source()
+    else:
+        source_url = args.source
+    source = connect(source_url)
+    try:
+        store = ResultStore(args.store)
+        run = run_bot(registry[args.bot_id], source, store, trigger="manual")
+        print(f"run {run.run_id}: {run.status} — {len(run.data)} signal(s)")
+        if run.summary:
+            print(run.summary)
+        return 0
+    finally:
+        source.close()
+        if demo_dir:
+            shutil.rmtree(demo_dir, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -6,7 +6,9 @@ so that dataclasses defined inside it resolve their ``__module__`` correctly.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import logging
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -17,6 +19,8 @@ import yaml
 
 from .manifest import BotManifest
 
+_log = logging.getLogger(__name__)
+
 
 @dataclass
 class BotRecord:
@@ -26,7 +30,10 @@ class BotRecord:
 
 
 def _load_pipeline(pipeline_path: Path, bot_id: str) -> Callable[..., Any]:
-    module_name = f"silmari_bot_{bot_id.replace('-', '_')}"
+    # Include a hash of the path so distinct bots never collide in sys.modules (e.g. "a-b" and
+    # "a_b" both normalize to "a_b"), which would mis-resolve in-module dataclasses' __module__.
+    digest = hashlib.sha1(str(pipeline_path).encode()).hexdigest()[:8]
+    module_name = f"silmari_bot_{bot_id.replace('-', '_')}_{digest}"
     spec = importlib.util.spec_from_file_location(module_name, pipeline_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load pipeline at {pipeline_path}")
@@ -51,7 +58,12 @@ def load_registry(bots_dir: str | Path) -> dict[str, BotRecord]:
     bots_dir = Path(bots_dir)
     registry: dict[str, BotRecord] = {}
     for child in sorted(bots_dir.iterdir()):
-        if (child / "manifest.yaml").exists():
+        if not (child / "manifest.yaml").exists():
+            continue
+        try:
             record = load_bot(child)
-            registry[record.manifest.bot_id] = record
+        except Exception as exc:  # one broken bot must not take down the whole registry
+            _log.warning("skipping bot at %s: %s: %s", child, type(exc).__name__, exc)
+            continue
+        registry[record.manifest.bot_id] = record
     return registry

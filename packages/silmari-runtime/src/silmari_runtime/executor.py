@@ -8,6 +8,8 @@ daemon thread and returns the in-flight run immediately.
 
 from __future__ import annotations
 
+import logging
+import re
 import threading
 import uuid
 from collections.abc import Callable
@@ -16,19 +18,25 @@ from typing import TYPE_CHECKING
 
 from silmari_core import DataAccess, DataSource
 
-from .context import Context
+from .context import BotResult, Context
 from .registry import BotRecord
 from .store import ResultStore, StoredRun
 
 if TYPE_CHECKING:
     from silmari_core import LLMClient
 
+_log = logging.getLogger(__name__)
+
+
+_RELATIVE_AS_OF = re.compile(r"^D-(\d+)$")
+
 
 def _resolve_as_of(as_of: str) -> str:
-    if as_of == "D-1":
-        return (date.today() - timedelta(days=1)).isoformat()
     if as_of in ("", "D", "D-0", "today"):
         return date.today().isoformat()
+    match = _RELATIVE_AS_OF.match(as_of)
+    if match:
+        return (date.today() - timedelta(days=int(match.group(1)))).isoformat()
     return as_of
 
 
@@ -47,7 +55,17 @@ def _begin_run(
     manifest = record.manifest
     run_id = _new_run_id()
     as_of = _resolve_as_of(manifest.data_access.as_of)
-    scoped = source.scoped(DataAccess(tables=list(manifest.data_access.tables)), run_id=run_id)
+    tables = list(manifest.data_access.tables)
+    if not tables and not manifest.data_access.unscoped:
+        raise ValueError(
+            f"bot {manifest.bot_id!r} declares no data_access.tables; set "
+            "data_access.unscoped: true to explicitly allow full read access"
+        )
+    if not tables:
+        _log.warning(
+            "bot %r running UNSCOPED (data_access.unscoped) — full read access", manifest.bot_id
+        )
+    scoped = source.scoped(DataAccess(tables=tables), run_id=run_id)
     context = Context(
         source=scoped,
         config={"trigger": trigger, **manifest.model_dump()},
@@ -60,10 +78,15 @@ def _begin_run(
     def execute() -> StoredRun:
         try:
             result = record.run(context)
+            if not isinstance(result, BotResult):
+                raise TypeError(
+                    f"bot {manifest.bot_id!r} run() returned {type(result).__name__}, "
+                    "expected BotResult"
+                )
+            return store.mark_completed(run_id, result)
         except Exception as exc:
             store.mark_failed(run_id, f"{type(exc).__name__}: {exc}")
             raise
-        return store.mark_completed(run_id, result)
 
     return running, execute
 

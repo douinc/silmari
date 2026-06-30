@@ -32,3 +32,8 @@ def test_manifest_from_dict() -> None:
 def test_invalid_kind_rejected() -> None:
     with pytest.raises(ValidationError):
         BotManifest(bot_id="b", name="B", kind="bogus")  # type: ignore[arg-type]
+
+
+def test_invalid_bot_id_rejected() -> None:
+    with pytest.raises(ValidationError):
+        BotManifest(bot_id="Bad Id", name="x")  # spaces/uppercase not allowed

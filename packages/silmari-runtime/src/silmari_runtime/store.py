@@ -6,8 +6,10 @@ Backed by SQLAlchemy/SQLite; defaults to a shared in-memory database.
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +63,21 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _json_default(obj: Any) -> Any:
+    """Serialize the common non-JSON types bots return (dates/Decimal/sets), str() as last resort.
+
+    Keeps a legitimate run (e.g. one returning ``datetime.date`` from the DB) from failing to
+    persist instead of being recorded ``completed``.
+    """
+    if isinstance(obj, datetime | date):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, set | frozenset):
+        return list(obj)
+    return str(obj)
+
+
 def _is_memory(url: str) -> bool:
     return url in ("sqlite://", "sqlite:///:memory:") or ":memory:" in url
 
@@ -99,10 +116,14 @@ class ResultStore:
         else:
             self._engine = create_engine(url, future=True)
         StoreBase.metadata.create_all(self._engine)
+        # Serialize DB access: the in-memory default shares one connection (StaticPool), and
+        # start_run writes from a daemon thread while callers read. RLock so latest()→history()
+        # can re-enter.
+        self._lock = threading.RLock()
 
     def create_running(self, bot_id: str, run_id: str, as_of: str) -> StoredRun:
         now = _now()
-        with Session(self._engine) as session:
+        with self._lock, Session(self._engine) as session:
             row = RunRow(
                 run_id=run_id,
                 bot_id=bot_id,
@@ -116,20 +137,22 @@ class ResultStore:
             return _to_stored(row)
 
     def mark_completed(self, run_id: str, result: BotResult) -> StoredRun:
-        with Session(self._engine) as session:
+        with self._lock, Session(self._engine) as session:
             row = session.get(RunRow, run_id)
             if row is None:
                 raise KeyError(run_id)
             row.summary = result.summary
-            row.data_json = json.dumps(result.data, ensure_ascii=False)
-            row.metadata_json = json.dumps(result.metadata, ensure_ascii=False)
+            row.data_json = json.dumps(result.data, ensure_ascii=False, default=_json_default)
+            row.metadata_json = json.dumps(
+                result.metadata, ensure_ascii=False, default=_json_default
+            )
             row.status = STATUS_COMPLETED
             row.finished_at = _now()
             session.commit()
             return _to_stored(row)
 
     def mark_failed(self, run_id: str, error: str) -> StoredRun:
-        with Session(self._engine) as session:
+        with self._lock, Session(self._engine) as session:
             row = session.get(RunRow, run_id)
             if row is None:
                 raise KeyError(run_id)
@@ -140,7 +163,7 @@ class ResultStore:
             return _to_stored(row)
 
     def get(self, bot_id: str, run_id: str) -> StoredRun | None:
-        with Session(self._engine) as session:
+        with self._lock, Session(self._engine) as session:
             row = session.get(RunRow, run_id)
             if row is None or row.bot_id != bot_id:
                 return None
@@ -153,7 +176,7 @@ class ResultStore:
     def history(
         self, bot_id: str, limit: int = 20, *, status: str | None = None
     ) -> list[StoredRun]:
-        with Session(self._engine) as session:
+        with self._lock, Session(self._engine) as session:
             stmt = select(RunRow).where(RunRow.bot_id == bot_id)
             if status is not None:
                 stmt = stmt.where(RunRow.status == status)
