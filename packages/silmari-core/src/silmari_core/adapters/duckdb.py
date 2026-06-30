@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DuckDB adapter. Opens the database **read-only** so the engine physically rejects writes
 (``read_only=True``); an in-memory database is always writable since it is ephemeral.
 

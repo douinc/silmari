@@ -1,0 +1,33 @@
+name: e2e
+
+# Browser e2e for the reference UI. Separate from ci.yml so the Python suite (uv run pytest) never
+# depends on Node/Chromium — this is its own optional check.
+on:
+  push:
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install e2e deps
+        working-directory: examples/frontend/e2e
+        run: npm install
+      - name: Install browsers
+        working-directory: examples/frontend/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e
+        working-directory: examples/frontend/e2e
+        env:
+          CI: "1"
+        run: npx playwright test

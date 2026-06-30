@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Read-only SQL enforcement and table extraction, backed by a real SQL parser (sqlglot).
 
 These are the core safety primitives:

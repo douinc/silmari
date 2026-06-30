@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Sensitive-data redaction applied before any non-local model call.
 
 ``SensitiveFilter`` is the interface. ``RegexFilter`` is an always-on, network-free floor for

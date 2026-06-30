@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """End-to-end authoring, fully offline: a scripted local model explores the source then proposes
 a bot via register_bot, which is validated against the source and written to disk.
 """

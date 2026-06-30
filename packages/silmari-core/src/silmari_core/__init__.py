@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Silmari core — governed, read-only, scoped, audited data access for LLM agents."""
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from .source import DataAccess, DataSource, ScopedSource
 from .sql import assert_read_only, tables_referenced
 
 __version__ = "0.1.0"
+__license__ = "AGPL-3.0-or-later"
 
 __all__ = [
     "AuditLog",
@@ -33,6 +36,7 @@ __all__ = [
     "ScopedSource",
     "SensitiveFilter",
     "Settings",
+    "__license__",
     "__version__",
     "assert_read_only",
     "connect",

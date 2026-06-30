@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Scaffold a new bot (manifest + pipeline + smoke test) — the ``silmari new-bot`` generator."""
 
 from __future__ import annotations

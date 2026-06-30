@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Robustness regressions for the executor (review fixes): runs never stick in `running`, bot
 output is type-checked, unscoped bots are flagged, and the store is safe under the daemon path.
 """

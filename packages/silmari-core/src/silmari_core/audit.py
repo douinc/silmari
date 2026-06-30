@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Metadata-only audit log for every data-source access.
 
 Records *what* was accessed (kind, target table, row count, duration) and *when* / *by which

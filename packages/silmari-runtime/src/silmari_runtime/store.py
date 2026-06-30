@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Run result store: per-run lifecycle (running → completed/failed) + persisted signals.
 
 Backed by SQLAlchemy/SQLite; defaults to a shared in-memory database.

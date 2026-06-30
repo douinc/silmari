@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DataSource: governed, read-only, scoped, audited data access.
 
 ``DataSource`` is the abstract base every adapter extends. It implements the full public surface

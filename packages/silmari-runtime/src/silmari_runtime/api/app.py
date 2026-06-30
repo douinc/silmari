@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """FastAPI app. Dependencies are injected via ``create_app(...)`` (for tests/embedding); the
 module-level ``app`` builds in-memory defaults for ``uvicorn silmari_runtime.api.app:app``.
 """
@@ -26,6 +28,11 @@ if TYPE_CHECKING:
 
     from ..registry import BotRecord
 
+#: Public source repository. Silmari is licensed under AGPL-3.0-or-later, whose §13 requires that
+#: users interacting with this service over a network be offered its Corresponding Source. We
+#: surface this URL in the OpenAPI metadata (``/docs``, ``/openapi.json``) so that offer is visible.
+SOURCE_URL = "https://github.com/douinc/silmari"
+
 
 def create_app(
     *,
@@ -37,8 +44,22 @@ def create_app(
     source: DataSource | None = None,
     bots_dir: str = "bots",
     cors_origins: list[str] | None = None,
+    ui_dir: str | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="Silmari", version="0.1.0")
+    app = FastAPI(
+        title="Silmari",
+        version="0.1.0",
+        description=(
+            "Governed, read-only, scoped, audited data access for LLM agents.\n\n"
+            "Silmari is free software, licensed under the GNU Affero General Public License "
+            "v3 or later (AGPL-3.0-or-later). In accordance with AGPL §13, the complete "
+            f"Corresponding Source for this running service is available at {SOURCE_URL}."
+        ),
+        license_info={
+            "name": "AGPL-3.0-or-later",
+            "url": "https://www.gnu.org/licenses/agpl-3.0.html",
+        },
+    )
     # No CORS by default (same-origin only). The API is unauthenticated (see SECURITY.md) — pass an
     # explicit allow-list to enable cross-origin access, and deploy it behind auth.
     if cors_origins:
@@ -60,6 +81,12 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    if ui_dir:
+        # Serve a static reference UI same-origin (no CORS needed). Mounted last so API routes win.
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")
 
     return app
 

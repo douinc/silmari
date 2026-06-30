@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Ruleset proposal flow: stage (validated) → approve (re-validate, merge, write) / reject.
 
 A reviewer proposes a new ruleset; it is validated before staging and **re-validated at approve

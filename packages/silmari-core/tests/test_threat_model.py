@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Adversarial threat-model regression tests.
 
 These lock in *which layer blocks what*, so a future refactor cannot silently reopen a bypass:

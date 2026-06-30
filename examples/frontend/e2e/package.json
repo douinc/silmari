@@ -1,0 +1,13 @@
+{
+  "name": "silmari-frontend-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright e2e for the Silmari reference UI (isolated from the Python workspace).",
+  "scripts": {
+    "test": "playwright test",
+    "install-browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Built-in DataSource adapters and the ``connect()`` factory."""
 
 from __future__ import annotations

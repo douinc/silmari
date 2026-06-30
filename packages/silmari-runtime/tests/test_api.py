@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 import time
 from pathlib import Path
 
@@ -185,3 +187,12 @@ def test_runs_negative_limit_is_clamped():
     client = _client(store=store)
     # SQLite treats LIMIT -1 as unbounded; the endpoint must clamp instead of returning everything.
     assert client.get("/v1/runs?limit=-1").status_code == 200
+
+
+def test_ui_served_when_ui_dir_set():
+    frontend = Path(__file__).resolve().parents[3] / "examples" / "frontend"
+    client = TestClient(create_app(bots_dir=str(EXAMPLES), ui_dir=str(frontend)))
+    page = client.get("/")
+    assert page.status_code == 200
+    assert 'data-testid="bot-list"' in page.text
+    assert client.get("/v1/bots").status_code == 200  # API routes still win over the static mount

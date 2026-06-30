@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Delivery: an in-process event bus (drives SSE) and webhook subscriptions.
 
 The bus is thread-safe pub/sub with bounded per-subscriber queues — a slow or dead subscriber

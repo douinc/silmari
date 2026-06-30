@@ -1,6 +1,6 @@
 # Silmari — Implementation Spec
 
-*Status: v0.1 · Name: Silmari (실마리) · License: Apache-2.0*
+*Status: v0.1 · Name: Silmari (실마리) · License: AGPL-3.0-or-later*
 
 This is the spec for Silmari, a governance-first engine that **derives review-priority signals
 (실마리) from rules over a read-only data source**. It was extracted as the generic engine from an
@@ -243,7 +243,7 @@ Defense in depth, strongest first:
 ## 7. Package & repo layout
 
 ```
-silmari/                         (Apache-2.0)
+silmari/                         (AGPL-3.0-or-later)
 ├─ packages/
 │  ├─ silmari-core/              L1: DataSource · ScopedSource · audit · sensitive-filter · llm
 │  │                                 + adapters (sqlite/duckdb/postgres, DB-level read-only)
@@ -292,4 +292,4 @@ Mono-repo, two packages (dbt-core / LiteLLM precedent); `silmari-core` ships sta
 - Ruleset operator vocabulary — keep generic; optional standard-vocabulary mapping is a *domain
   overlay* concern, not core.
 - Naming of `DataSource` methods (`query/sample/stats/schema`) — confirm.
-- Confirm Apache-2.0; add `SECURITY.md` (dual-use / responsible-use) and `CONTRIBUTING.md`.
+- Confirm AGPL-3.0-or-later; add `SECURITY.md` (dual-use / responsible-use) and `CONTRIBUTING.md`.

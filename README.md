@@ -1,5 +1,7 @@
 # Silmari (실마리)
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
 **Define rules over a read-only data source; Silmari safely derives _실마리_ — review-priority
 leads (signals) — for a human to decide.**
 
@@ -111,4 +113,4 @@ ruleset engine, delivery/review API, and authoring agent are implemented and tes
 
 ## License
 
-Apache-2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Copyright 2026 Dou Inc.
+AGPL-3.0-or-later — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Copyright 2026 Dou Inc.

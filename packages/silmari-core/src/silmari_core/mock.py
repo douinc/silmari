@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """In-memory ``MockSource`` — a dict-backed DataSource for tests and simple demos.
 
 Read-only by construction (there is no write path). ``_execute`` resolves the first table from

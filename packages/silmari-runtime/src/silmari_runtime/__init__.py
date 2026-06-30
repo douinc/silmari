@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Silmari runtime — manifest, registry, executor, Signal model, result store, scheduler."""
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from .sinks import EventBus, Subscription, SubscriptionStore
 from .store import ResultStore, StoredRun
 
 __version__ = "0.1.0"
+__license__ = "AGPL-3.0-or-later"
 
 # Note: the FastAPI app lives in `silmari_runtime.api` (import it from there) so that importing
 # `silmari_runtime` does not eagerly pull in FastAPI.
@@ -55,6 +58,7 @@ __all__ = [
     "SubscriptionStore",
     "TuningReport",
     "ValidationReport",
+    "__license__",
     "__version__",
     "build_scheduler",
     "confidence_band",
