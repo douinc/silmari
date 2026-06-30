@@ -17,6 +17,7 @@ from ..sinks import EventBus, SubscriptionStore
 from ..store import ResultStore
 from .routers import (
     admin_router,
+    authoring_router,
     bots_router,
     data_router,
     review_router,
@@ -27,6 +28,7 @@ from .routers import (
 if TYPE_CHECKING:
     from silmari_core import DataSource
 
+    from ..agent.harness import ChatLLM
     from ..registry import BotRecord
 
 #: Public source repository. Silmari is licensed under AGPL-3.0-or-later, whose §13 requires that
@@ -46,6 +48,7 @@ def create_app(
     bots_dir: str = "bots",
     cors_origins: list[str] | None = None,
     ui_dir: str | None = None,
+    authoring_llm: ChatLLM | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="Silmari",
@@ -75,6 +78,7 @@ def create_app(
     app.state.subscriptions = subscriptions or SubscriptionStore()
     app.state.bus = bus or EventBus()
     app.state.source = source
+    app.state.authoring_llm = authoring_llm
 
     for router in (
         bots_router,
@@ -83,6 +87,7 @@ def create_app(
         subscriptions_router,
         admin_router,
         data_router,
+        authoring_router,
     ):
         app.include_router(router)
 

@@ -57,6 +57,9 @@ cron (or you trigger it on demand); each run executes read-only · scoped · aud
 (review-priority signals, never verdicts), delivers them, and a reviewer's accept/reject decisions
 feed **threshold tuning** back into the next run.
 
+> Try the agent live: `silmari serve --ui --demo-data` ships an offline, scripted authoring demo
+> under **"author a bot"** in the reference UI (no model to install).
+
 ## Two packages
 
 - **`silmari-core`** — the governance library: safe, read-only, scoped, audited, redacted data

@@ -35,6 +35,8 @@
     code { background:rgba(127,127,127,.15); padding:1px 4px; border-radius:4px; }
     .evt { font-size:12px; padding:4px 0; border-bottom:1px solid var(--line); }
     .row-actions { display:flex; gap:6px; }
+    textarea { width:100%; min-height:80px; box-sizing:border-box; background:var(--panel); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:8px; font:inherit; }
+    pre { background:rgba(127,127,127,.12); padding:8px; border-radius:6px; overflow:auto; font-size:12px; max-height:240px; }
     footer { padding:8px 16px; border-top:1px solid var(--line); font-size:12px; color:var(--muted); }
     footer a { color:var(--accent); text-decoration:none; }
     footer a:hover { text-decoration:underline; }
@@ -50,6 +52,7 @@
     <aside>
       <h2>Bots</h2>
       <div id="bots" data-testid="bot-list"></div>
+      <button id="author-open" data-testid="author-open" style="margin-top:10px;width:100%">✎ author a bot (agent)</button>
     </aside>
     <section>
       <div id="bot-header"><p class="muted">Select a bot.</p></div>
@@ -185,6 +188,46 @@
     }
     const es = new EventSource("/v1/runs/stream");
     ["run_started", "run_progress", "run_completed", "run_failed"].forEach((t) => es.addEventListener(t, logEvent));
+
+    document.getElementById("author-open").onclick = () => {
+      current.botId = null;
+      document.querySelectorAll(".bot").forEach((n) => n.classList.remove("active"));
+      document.getElementById("bot-header").innerHTML = `<h2 data-testid="author-title">Author a bot (agent)</h2>`;
+      document.getElementById("tabs").hidden = true;
+      renderAuthoring();
+    };
+
+    function renderAuthoring() {
+      document.getElementById("panel").innerHTML = `
+        <p class="muted">Describe the bot; a local-only agent explores the read-only source and proposes a validated pipeline for your review.</p>
+        <textarea id="author-input" data-testid="author-input" placeholder="e.g. flag high-value orders"></textarea>
+        <div class="row-actions" style="margin:8px 0"><button id="author-propose" data-testid="author-propose">Propose</button></div>
+        <div id="proposal" data-testid="proposal"></div>`;
+      document.getElementById("author-propose").onclick = propose;
+    }
+
+    async function propose() {
+      const msg = document.getElementById("author-input").value || "propose a bot";
+      const out = document.getElementById("proposal");
+      out.innerHTML = `<p class="muted">proposing…</p>`;
+      const { ok, status, body } = await api("/v1/authoring/propose", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg }),
+      });
+      if (status === 503) {
+        out.innerHTML = `<p class="muted">Authoring isn't enabled — run <code>silmari serve --ui --demo-data</code>.</p>`;
+        return;
+      }
+      const p = body && body.proposal;
+      if (!ok || !p) { out.innerHTML = `<p class="muted">No bot proposed.</p>`; return; }
+      out.innerHTML = `
+        <p data-testid="proposed-bot">proposed <strong>${esc(p.bot_id)}</strong>
+          <span class="badge ${p.valid ? "accepted" : "rejected"}">${p.valid ? "valid" : "invalid"}</span>
+          ${p.valid ? `· ${p.record_count} signal(s)` : ""}</p>
+        <p class="muted">steps: ${(body.steps || []).map(esc).join(" → ")}</p>
+        <pre>${esc(p.pipeline)}</pre>
+        <p class="muted">propose-only — review, then register it to activate.</p>`;
+    }
 
     loadHealth();
     loadBots();

@@ -240,3 +240,39 @@ def test_data_sample_masks_a_real_table():
     source = MockSource({"t": [{"id": 1, "email": "a@b.com"}]}, masking=ColumnMasking(["email"]))
     rows = _client(source=source).get("/v1/data/tables/t/sample").json()["rows"]
     assert rows[0] == {"id": 1, "email": "***"}  # validated table -> masking applies for real
+
+
+_AUTHORING_PIPELINE = (
+    "from silmari_runtime.signal import result, signal\n\n\n"
+    "def run(context):\n"
+    "    rows = context.source.query('SELECT * FROM orders')\n"
+    "    sigs = [signal(target_id=str(r['id']), label='hv') for r in rows]\n"
+    "    return result(sigs, label='hv', as_of=context.as_of)\n"
+)
+
+
+def test_authoring_propose_with_scripted_llm():
+    from silmari_runtime.agent.scripted import ScriptedLLM, say, tool_call
+
+    llm = ScriptedLLM(
+        [
+            tool_call("data_schema"),
+            tool_call(
+                "register_bot", bot_id="hv", pipeline_source=_AUTHORING_PIPELINE, tables=["orders"]
+            ),
+            say("done"),
+        ]
+    )
+    client = _client(source=MockSource({"orders": [{"id": 1}, {"id": 2}]}), authoring_llm=llm)
+    out = client.post("/v1/authoring/propose", json={"message": "make a bot"}).json()
+    assert "register_bot" in out["steps"]
+    assert out["proposal"]["bot_id"] == "hv"
+    assert out["proposal"]["valid"] is True
+    assert "def run(context)" in out["proposal"]["pipeline"]
+
+
+def test_authoring_disabled_without_llm_returns_503():
+    resp = _client(source=MockSource({"orders": []})).post(
+        "/v1/authoring/propose", json={"message": "x"}
+    )
+    assert resp.status_code == 503  # gated: no authoring_llm configured

@@ -38,6 +38,41 @@ def _demo_source() -> tuple[str, str]:
     return f"duckdb:///{path}", tmpdir
 
 
+_DEMO_BOT_PIPELINE = '''from silmari_runtime.signal import result, signal
+
+
+def run(context):
+    rows = context.source.query("SELECT id, total FROM orders")
+    flagged = [
+        signal(target_id=str(r["id"]), label="high_value", score=min(1.0, r["total"] / 100))
+        for r in rows
+        if r["total"] >= 75
+    ]
+    return result(flagged, label="high_value", as_of=context.as_of)
+'''
+
+
+def _demo_authoring_llm():
+    """A scripted local 'model': explore the demo source, then propose a high-value-orders bot.
+
+    Deterministic + offline, so ``serve --demo-data`` can demo the authoring agent with known code.
+    """
+    from .agent.scripted import ScriptedLLM, say, tool_call
+
+    return ScriptedLLM(
+        [
+            tool_call("data_schema"),
+            tool_call(
+                "register_bot",
+                bot_id="high-value-orders",
+                pipeline_source=_DEMO_BOT_PIPELINE,
+                tables=["orders"],
+            ),
+            say("Proposed 'high-value-orders' — review the pipeline, then register it."),
+        ]
+    )
+
+
 def _run(args: argparse.Namespace) -> int:
     registry = load_registry(args.bots_dir)
     if args.bot_id not in registry:
@@ -87,6 +122,7 @@ def _serve(args: argparse.Namespace) -> int:  # pragma: no cover - blocking serv
 
     source = None
     demo_dir = None
+    authoring_llm = None
     try:
         if args.source:
             try:
@@ -97,8 +133,13 @@ def _serve(args: argparse.Namespace) -> int:  # pragma: no cover - blocking serv
         elif args.demo_data:
             url, demo_dir = _demo_source()
             source = connect(url)
+            authoring_llm = _demo_authoring_llm()
         app = create_app(
-            bots_dir=args.bots_dir, store=ResultStore(args.store), source=source, ui_dir=args.ui
+            bots_dir=args.bots_dir,
+            store=ResultStore(args.store),
+            source=source,
+            ui_dir=args.ui,
+            authoring_llm=authoring_llm,
         )
         uvicorn.run(app, host=args.host, port=args.port)
     finally:

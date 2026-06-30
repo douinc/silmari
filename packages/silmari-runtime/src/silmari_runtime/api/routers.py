@@ -348,3 +348,57 @@ def run_query(body: QueryRequest, request: Request) -> dict[str, Any]:
     except (ReadOnlyViolation, ScopeViolation) as exc:
         raise HTTPException(400, str(exc)) from exc
     return {"rows": rows}
+
+
+# ----------------------------------------------------------------- authoring (local-only agent)
+
+# Run the local-only authoring agent over the configured source and return a *proposed* bot
+# (propose-only — written to a throwaway staging dir; nothing is activated). Gated: only active
+# when an authoring_llm is configured. `serve --demo-data` wires a deterministic ScriptedLLM, so
+# the demo is offline and runs *known* code; a real local model would run model-written code at
+# validation time — keep it behind auth, in an isolated environment (see SECURITY.md).
+
+authoring_router = APIRouter(prefix="/v1/authoring", tags=["authoring"])
+
+
+class AuthoringRequest(BaseModel):
+    message: str
+
+
+@authoring_router.post("/propose")
+def propose_bot_via_agent(body: AuthoringRequest, request: Request) -> dict[str, Any]:
+    llm = request.app.state.authoring_llm
+    if llm is None:
+        raise HTTPException(503, "authoring is not enabled (no model configured)")
+    source = request.app.state.source
+    if source is None:
+        raise HTTPException(503, "no data source configured")
+
+    import shutil
+    import tempfile
+
+    from ..agent.harness import AgentSession
+
+    staging = tempfile.mkdtemp(prefix="silmari-propose-")
+    try:
+        session = AgentSession(llm, source, authoring=True, bots_dir=staging)
+        outcome = session.run(body.message)
+        register = next((s for s in outcome.steps if s.tool == "register_bot"), None)
+        proposal: dict[str, Any] | None = None
+        if register is not None:
+            data = json.loads(register.result)
+            proposal = {
+                "bot_id": data.get("bot_id"),
+                "valid": data.get("valid"),
+                "record_count": data.get("record_count"),
+                "summary": data.get("summary"),
+                "errors": data.get("errors") or [],
+                "pipeline": register.arguments.get("pipeline_source", ""),
+            }
+        return {
+            "final_text": outcome.final_text,
+            "steps": [s.tool for s in outcome.steps],
+            "proposal": proposal,
+        }
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
