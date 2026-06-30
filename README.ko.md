@@ -1,6 +1,6 @@
 # Silmari (실마리)
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 [English](README.md) · **한국어**
 
@@ -77,18 +77,14 @@ flowchart TB
 ## 설치
 
 ```bash
-# PyPI에서 (각 패키지는 독립적으로 설치 가능)
-pip install silmari-core          # 거버넌스 라이브러리만
-pip install 'silmari-core[postgres]'  # + Postgres 어댑터 (psycopg)
-pip install silmari-runtime       # 전체 프레임워크 (core에 의존)
-
-# 소스에서 (uv 워크스페이스)
+# 소스에서 (uv 워크스페이스) — 현재 권장
 git clone https://github.com/douinc/silmari && cd silmari
-uv sync
-uv run pytest -q
+uv sync                 # 워크스페이스 venv 생성 (silmari-core + silmari-runtime)
+uv run pytest -q        # 모두 오프라인 동작
 ```
 
-Python 3.14+ 필요.
+Python 3.14+ 필요. PyPI 패키지(`silmari-core`, `silmari-core[postgres]`, `silmari-runtime`)는
+예정 — 그때까지는 소스에서 설치하세요.
 
 ## 빠른 시작
 

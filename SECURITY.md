@@ -65,6 +65,9 @@ privileged operation:
 - Do not register a remote model under a `local/*` name (it would bypass redaction).
 - Outputs are **review-priority signals (실마리), not verdicts** — keep a human in the loop; do
   not auto-write results back to a system of record.
+- The reference UI (`examples/frontend`, served by `silmari serve --ui`) loads web fonts from
+  Google Fonts on page load — fonts only, no deployment data is sent — and degrades to system fonts
+  offline. Remove the `<link>` tags (or self-host the fonts) for strict air-gapped deployments.
 
 ## Reporting a vulnerability
 

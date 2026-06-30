@@ -1,6 +1,6 @@
 # Silmari (실마리)
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 **English** · [한국어](README.ko.md)
 
@@ -75,18 +75,14 @@ feed **threshold tuning** back into the next run.
 ## Install
 
 ```bash
-# from PyPI (each package is independently installable)
-pip install silmari-core          # just the governance library
-pip install 'silmari-core[postgres]'  # + the Postgres adapter (psycopg)
-pip install silmari-runtime       # the full framework (depends on core)
-
-# from source (uv workspace)
+# from source (uv workspace) — recommended today
 git clone https://github.com/douinc/silmari && cd silmari
-uv sync
-uv run pytest -q
+uv sync                 # creates the workspace venv (silmari-core + silmari-runtime)
+uv run pytest -q        # everything runs offline
 ```
 
-Python 3.14+.
+Python 3.14+. PyPI packages (`silmari-core`, `silmari-core[postgres]`, `silmari-runtime`) are
+planned — install from source until then.
 
 ## Quickstart
 
