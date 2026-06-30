@@ -24,6 +24,34 @@ model, and keep no audit trail. Silmari is **safe by default**:
 > threat model (use a least-privilege DB role; the HTTP API is unauthenticated; the authoring agent
 > runs proposed code).
 
+## How it works
+
+```mermaid
+flowchart LR
+    rules["ruleset.json<br/>or pipeline.py"]
+    src[("read-only<br/>data source")]
+    engine{{"Silmari engine<br/>read-only · scoped<br/>audited · redacted"}}
+    signals["실마리<br/>review-priority signals<br/>(never verdicts)"]
+    sinks["webhook · SSE · API"]
+    human(["human reviewer<br/>accept / reject"])
+    tuning["threshold tuning<br/>precision · recall · F1"]
+
+    rules -->|define| engine
+    src -. read-only .-> engine
+    engine -->|derive| signals
+    signals --> sinks --> human
+    human -. labels .-> tuning
+    tuning -. recommends threshold .-> engine
+
+    classDef default fill:#4a90d9,stroke:#6ab0ff,color:#fff
+    classDef store fill:#2e7d57,stroke:#52c98a,color:#fff
+    class src store
+```
+
+You bring the **rules** (a declarative ruleset, or a Python bot). Silmari brings the **safe
+execution + derivation + review** — and, optionally, a local-only agent that helps author bots by
+exploring the (read-only) source and proposing a validated pipeline.
+
 ## Two packages
 
 - **`silmari-core`** — the governance library: safe, read-only, scoped, audited, redacted data
@@ -89,16 +117,6 @@ def run(context: Context) -> BotResult:
 …or skip Python entirely with a declarative **ruleset** (`ruleset.json`): AND/OR criteria
 (`eq/ne/lt/lte/gt/gte/in/text_present/relative_decrease`) over your columns → signals. See
 [`examples/bots/`](examples/bots).
-
-## The core loop
-
-```
-define (rule / bot) → Silmari runs it read-only · scoped · audited → 실마리 (review signals) → a human decides
-```
-
-You bring the **rules** (a declarative ruleset, or a Python bot). Silmari brings the **safe
-execution + derivation + review** — and, optionally, a local-only agent that helps author bots by
-exploring the (read-only) source and proposing a validated pipeline.
 
 ## Documentation
 
