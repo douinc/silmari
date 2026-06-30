@@ -33,6 +33,7 @@ flowchart TB
         a1["hand-write"]
         a2["silmari new-bot"]
         a3["authoring agent<br/>(proposes · you review)"]
+        a1 ~~~ a2 ~~~ a3
     end
     author --> bot["registered bot<br/>pipeline.py / ruleset.json"]
     bot --> reg["registry + scheduler<br/>(cron · or on demand)"]
