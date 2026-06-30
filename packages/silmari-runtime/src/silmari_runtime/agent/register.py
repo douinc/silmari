@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Validate an agent-proposed pipeline against the configured source, then write ``bots/<id>/``.
 
 Before anything is written, the proposal is validated: static checks (id/kind/tables, ``run`` is

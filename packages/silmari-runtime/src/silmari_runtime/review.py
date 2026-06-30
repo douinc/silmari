@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Review loop: per-case accept/reject/note decisions + threshold tuning (precision/recall/F1).
 
 A "case" is one emitted signal within a run, addressed by its index in the run's data. "pending"

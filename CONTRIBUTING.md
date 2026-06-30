@@ -41,7 +41,7 @@ discuss first.
 - Branch from `main`; keep PRs focused.
 - Include tests for new behavior; keep `pytest`/`ruff`/`mypy` green.
 - Use clear, imperative commit messages.
-- By contributing you agree your work is licensed under the project's Apache-2.0 license (no CLA).
+- By contributing you agree your work is licensed under the project's AGPL-3.0-or-later license (no CLA).
 
 ## Reporting issues
 

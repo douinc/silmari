@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """The runtime handle a bot pipeline receives.
 
 A bot author writes ``def run(context: Context) -> BotResult``. The platform fills ``Context``

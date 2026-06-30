@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Execute a bot: build a scoped source + Context, run the pipeline, persist the result.
 
 Begin/execute split: ``_begin_run`` synchronously reserves a run row and builds the context;

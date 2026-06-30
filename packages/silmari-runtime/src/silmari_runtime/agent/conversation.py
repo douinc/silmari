@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Authoring conversation store: ordered messages per conversation (SQLite, thread-safe)."""
 
 from __future__ import annotations

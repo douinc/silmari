@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Agent tools: read-only data-source exploration, plus (authoring mode) bot proposal.
 
 Tools return JSON strings and never raise — a tool error (incl. scope/read-only violations) is

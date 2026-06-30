@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Silmari core exceptions.
 
 Both subclass ``PermissionError`` so callers can ``except PermissionError`` for any access

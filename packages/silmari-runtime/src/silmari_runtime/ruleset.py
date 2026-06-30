@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Declarative ruleset engine: a ``ruleset.json`` (no Python) → review-priority Signals.
 
 A ruleset is a list of rules; each rule has AND/OR-combined criteria over record fields, and an

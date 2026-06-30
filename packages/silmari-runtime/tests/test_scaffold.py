@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 import pytest
 from silmari_core import MockSource
 from silmari_runtime.executor import run_bot

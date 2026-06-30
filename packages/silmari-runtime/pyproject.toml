@@ -3,7 +3,7 @@ name = "silmari-runtime"
 version = "0.1.0"
 description = "Silmari runtime — registry, scheduler, ruleset engine, sinks, review, API."
 requires-python = ">=3.11"
-license = "Apache-2.0"
+license = "AGPL-3.0-or-later"
 authors = [{ name = "Dou Inc." }]
 dependencies = [
     "silmari-core",

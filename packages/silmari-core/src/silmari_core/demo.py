@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Runnable safety demo: ``silmari-demo`` (or ``run_demo()``).
 
 Seeds a tiny DuckDB database, opens it read-only through Silmari, and shows the four guarantees:

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """LLM client (via a LiteLLM-compatible proxy) with a local-first redaction gate.
 
 Only ``local/*`` models are exempt from redaction. For any other model, **every string** in

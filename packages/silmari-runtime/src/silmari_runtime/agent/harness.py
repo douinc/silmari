@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Local-only tool-use agent loop.
 
 The loop sends the conversation + tool schemas to a chat model, executes any tool calls, feeds the

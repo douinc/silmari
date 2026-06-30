@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Bot manifest schema (pydantic). Loaded from ``bots/<id>/manifest.yaml``.
 
 Declares the bot's read scope (``data_access.tables`` — the Executor scopes the bot to exactly

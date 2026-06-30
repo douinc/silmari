@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 import pytest
 from silmari_core.errors import ReadOnlyViolation
 from silmari_core.sql import assert_read_only, tables_referenced

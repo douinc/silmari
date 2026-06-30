@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """SQLite adapter. Opens the database **read-only** via URI ``mode=ro`` and ``PRAGMA
 query_only = ON`` so the engine physically rejects writes; an in-memory database is always
 writable since it is ephemeral.

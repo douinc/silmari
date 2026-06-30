@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Example declarative bot — all logic lives in ``ruleset.json`` (no per-bot Python).
 
 The pipeline just loads and runs the ruleset; editing ``ruleset.json`` changes behavior with no

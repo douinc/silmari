@@ -1,0 +1,184 @@
+<!doctype html>
+<!-- SPDX-FileCopyrightText: 2026 Dou Inc. -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Silmari — reference UI</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#0f1419; --panel:#1a212b; --line:#2b3441; --fg:#e6edf3;
+            --muted:#8b98a5; --accent:#4a90d9; --ok:#2e9e6b; --bad:#c4544f; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); display:flex; flex-direction:column; height:100vh; }
+    header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); }
+    header h1 { font-size:16px; margin:0; }
+    .muted { color:var(--muted); }
+    .pill { font-size:12px; padding:1px 8px; border-radius:999px; border:1px solid var(--line); }
+    main { display:grid; grid-template-columns:220px 1fr 300px; height:calc(100vh - 49px); }
+    aside, section, .events { overflow:auto; padding:12px; }
+    aside { border-right:1px solid var(--line); }
+    .events { border-left:1px solid var(--line); }
+    h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 8px; }
+    .bot { padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; cursor:pointer; background:var(--panel); }
+    .bot.active { border-color:var(--accent); }
+    button { font:inherit; color:var(--fg); background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; }
+    button:hover { border-color:var(--accent); }
+    .tabs { display:flex; gap:6px; margin:12px 0; }
+    .tab.active { border-color:var(--accent); }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:top; }
+    .badge { font-size:11px; padding:1px 7px; border-radius:999px; }
+    .accepted { background:rgba(46,158,107,.18); color:var(--ok); }
+    .rejected { background:rgba(196,84,79,.18); color:var(--bad); }
+    .pending { color:var(--muted); }
+    code { background:rgba(127,127,127,.15); padding:1px 4px; border-radius:4px; }
+    .evt { font-size:12px; padding:4px 0; border-bottom:1px solid var(--line); }
+    .row-actions { display:flex; gap:6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Silmari <span class="muted">— reference UI</span></h1>
+    <span class="pill" data-testid="health">checking…</span>
+    <span class="muted" style="margin-left:auto">review-priority signals (실마리), not verdicts</span>
+  </header>
+  <main>
+    <aside>
+      <h2>Bots</h2>
+      <div id="bots" data-testid="bot-list"></div>
+    </aside>
+    <section>
+      <div id="bot-header"><p class="muted">Select a bot.</p></div>
+      <div class="tabs" id="tabs" hidden>
+        <button class="tab active" data-tab="review" data-testid="tab-review">Review</button>
+        <button class="tab" data-tab="tuning" data-testid="tab-tuning">Tuning</button>
+        <button data-testid="run-now" id="run-now" style="margin-left:auto">Run now</button>
+      </div>
+      <div id="panel"></div>
+    </section>
+    <div class="events">
+      <h2>Run events (SSE)</h2>
+      <div id="events" data-testid="event-log"></div>
+    </div>
+  </main>
+
+  <script>
+    const api = async (path, opts) => {
+      const res = await fetch(path, opts);
+      return { ok: res.ok, status: res.status, body: res.status === 204 ? null : await res.json() };
+    };
+    const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; };
+    const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
+
+    let current = { botId: null, runId: null, tab: "review" };
+
+    async function loadHealth() {
+      const { body } = await api("/health");
+      const h = document.querySelector('[data-testid="health"]');
+      h.textContent = body?.status === "ok" ? "API: ok" : "API: down";
+    }
+
+    async function loadBots() {
+      const { body } = await api("/v1/bots");
+      const box = document.getElementById("bots");
+      box.innerHTML = "";
+      (body || []).forEach((b) => {
+        const node = el(`<div class="bot" data-testid="bot-${b.bot_id}">${esc(b.name)}<br><span class="muted">${esc(b.bot_id)}</span></div>`);
+        node.onclick = () => selectBot(b.bot_id);
+        box.appendChild(node);
+      });
+    }
+
+    async function selectBot(botId) {
+      current.botId = botId;
+      document.querySelectorAll(".bot").forEach((n) => n.classList.toggle("active", n.dataset.testid === `bot-${botId}`));
+      document.getElementById("bot-header").innerHTML = `<h2 data-testid="selected-bot">${esc(botId)}</h2>`;
+      document.getElementById("tabs").hidden = false;
+      const { ok, body } = await api(`/v1/bots/${botId}/results`);
+      current.runId = ok ? body.run_id : null;
+      render();
+    }
+
+    async function render() {
+      if (current.tab === "tuning") return renderTuning();
+      return renderReview();
+    }
+
+    async function renderReview() {
+      const panel = document.getElementById("panel");
+      if (!current.runId) { panel.innerHTML = `<p class="muted" data-testid="no-runs">No completed run yet — click “Run now”.</p>`; return; }
+      const { body } = await api(`/v1/bots/${current.botId}/runs/${current.runId}/cases`);
+      const t = body.tally || {};
+      const rows = (body.cases || []).map((c) => `
+        <tr data-testid="case-${c.case_id}">
+          <td><code>${esc(c.case_id)}</code></td>
+          <td>${c.score ?? "—"}</td>
+          <td>${esc(JSON.stringify(c.record))}</td>
+          <td><span class="badge ${c.decision}" data-testid="decision-${c.case_id}">${c.decision}</span></td>
+          <td class="row-actions">
+            <button data-testid="accept-${c.case_id}" onclick="decide('${c.case_id}','accepted')">Accept</button>
+            <button data-testid="reject-${c.case_id}" onclick="decide('${c.case_id}','rejected')">Reject</button>
+          </td>
+        </tr>`).join("");
+      panel.innerHTML = `
+        <p data-testid="tally">accepted ${t.accepted ?? 0} · rejected ${t.rejected ?? 0} · pending ${t.pending ?? 0} / ${t.total ?? 0}</p>
+        <table><thead><tr><th>case</th><th>score</th><th>record</th><th>decision</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table>`;
+    }
+
+    window.decide = async (caseId, decision) => {
+      await api(`/v1/bots/${current.botId}/runs/${current.runId}/cases/${caseId}/decision`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, reviewer: "ui" }),
+      });
+      renderReview();
+    };
+
+    async function renderTuning() {
+      const { body } = await api(`/v1/bots/${current.botId}/tuning`);
+      const rec = body.recommended;
+      const points = (body.points || []).map((p) =>
+        `<tr><td>${p.threshold}</td><td>${p.flagged}</td><td>${p.precision}</td><td>${p.recall}</td><td>${p.f1}</td></tr>`).join("");
+      document.getElementById("panel").innerHTML = `
+        <p data-testid="tuning">labeled ${body.labeled} · accepted ${body.accepted} · rejected ${body.rejected}
+        ${rec ? `· <strong>recommended threshold ${rec.threshold}</strong> (F1 ${rec.f1})` : "· no recommendation yet"}</p>
+        <table><thead><tr><th>threshold</th><th>flagged</th><th>precision</th><th>recall</th><th>F1</th></tr></thead>
+        <tbody>${points}</tbody></table>`;
+    }
+
+    document.getElementById("tabs").addEventListener("click", (e) => {
+      const tab = e.target.dataset.tab;
+      if (!tab) return;
+      current.tab = tab;
+      document.querySelectorAll(".tab").forEach((n) => n.classList.toggle("active", n.dataset.tab === tab));
+      render();
+    });
+
+    document.getElementById("run-now").onclick = async () => {
+      if (!current.botId) return;
+      const { ok, body } = await api(`/v1/bots/${current.botId}/run`, { method: "POST" });
+      if (!ok) return;
+      const runId = body.run_id;
+      for (let i = 0; i < 100; i++) {
+        const r = await api(`/v1/bots/${current.botId}/results/${runId}`);
+        if (r.ok && r.body.status === "completed") break;
+        await new Promise((res) => setTimeout(res, 150));
+      }
+      current.runId = runId;
+      render();
+    };
+
+    function logEvent(e) {
+      const data = JSON.parse(e.data);
+      const log = document.getElementById("events");
+      log.prepend(el(`<div class="evt" data-testid="event">${esc(e.type)} · ${esc(data.bot_id || "")} · ${esc(data.run_id || "")}</div>`));
+    }
+    const es = new EventSource("/v1/runs/stream");
+    ["run_started", "run_progress", "run_completed", "run_failed"].forEach((t) => es.addEventListener(t, logEvent));
+
+    loadHealth();
+    loadBots();
+  </script>
+</body>
+</html>

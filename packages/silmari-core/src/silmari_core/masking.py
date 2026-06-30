@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Direct-identifier masking for sampled rows.
 
 ``MaskingPolicy`` is the interface; ``NoMasking`` is the no-op default. ``ColumnMasking`` redacts

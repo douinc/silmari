@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Bot registry: load bots from a directory tree of ``<bot_id>/manifest.yaml`` + ``pipeline.py``.
 
 The pipeline module is imported by path; it is pre-registered in ``sys.modules`` before execution

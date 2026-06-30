@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """HTTP routers. Dependencies are read from ``request.app.state`` (wired by ``create_app``)."""
 
 from __future__ import annotations

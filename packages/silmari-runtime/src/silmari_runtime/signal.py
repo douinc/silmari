@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Signal (실마리) records — the review-priority output of a bot.
 
 A Signal is framed as a **review-priority signal, never a verdict**: every record carries the

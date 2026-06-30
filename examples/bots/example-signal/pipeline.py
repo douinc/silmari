@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Example signal bot: flag orders at/above a total threshold as review-priority signals.
 
 Reads only the ``orders`` table (its declared scope), and emits one Signal per high-value order,

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Dou Inc.
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Silmari CLI: ``run`` a bot, ``new-bot`` to scaffold one, ``serve`` the API, ``demo``."""
 
 from __future__ import annotations
@@ -79,13 +81,23 @@ def _serve(args: argparse.Namespace) -> int:  # pragma: no cover - blocking serv
 
     from .api.app import create_app
 
-    source = connect(args.source) if args.source else None
+    source = None
+    demo_dir = None
     try:
-        app = create_app(bots_dir=args.bots_dir, store=ResultStore(args.store), source=source)
+        if args.source:
+            source = connect(args.source)
+        elif args.demo_data:
+            url, demo_dir = _demo_source()
+            source = connect(url)
+        app = create_app(
+            bots_dir=args.bots_dir, store=ResultStore(args.store), source=source, ui_dir=args.ui
+        )
         uvicorn.run(app, host=args.host, port=args.port)
     finally:
         if source is not None:
             source.close()
+        if demo_dir is not None:
+            shutil.rmtree(demo_dir, ignore_errors=True)
     return 0
 
 
@@ -159,6 +171,14 @@ def main(argv: list[str] | None = None) -> int:
     serve_p.add_argument("--bots-dir", default="bots")
     serve_p.add_argument("--source", default=None)
     serve_p.add_argument("--store", default="sqlite://")
+    serve_p.add_argument(
+        "--ui", nargs="?", const="examples/frontend", default=None,
+        help="serve a static reference UI directory (default: examples/frontend)",
+    )
+    serve_p.add_argument(
+        "--demo-data", action="store_true",
+        help="seed a throwaway demo source (orders/metrics) when --source is not given",
+    )
     serve_p.set_defaults(func=_serve)
 
     demo_p = sub.add_parser("demo", help="run a self-contained ruleset demo")
