@@ -1,8 +1,9 @@
 """LLM client (via a LiteLLM-compatible proxy) with a local-first redaction gate.
 
-Only ``local/*`` models are exempt from redaction; for any other model, every message's text is
-passed through the sensitive-data filter **before** the HTTP call, so PII cannot leave with a
-non-local request.
+Only ``local/*`` models are exempt from redaction. For any other model, **every string** in
+every message — plain ``content``, list content blocks (text/tool-result), and ``tool_calls``
+arguments — is passed through the sensitive-data filter before the HTTP call, so no string-shaped
+PII can leave with a non-local request regardless of message shape.
 """
 
 from __future__ import annotations
@@ -35,15 +36,18 @@ class LLMClient:
         else:
             self._filter = NoFilter()
 
+    def _redact(self, value: Any) -> Any:
+        """Recursively redact every string in a message structure (fail-safe for any shape)."""
+        if isinstance(value, str):
+            return self._filter.redact(value)
+        if isinstance(value, list):
+            return [self._redact(item) for item in value]
+        if isinstance(value, dict):
+            return {key: self._redact(item) for key, item in value.items()}
+        return value
+
     def _redact_messages(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        out: list[dict[str, Any]] = []
-        for message in messages:
-            content = message.get("content")
-            if isinstance(content, str):
-                out.append({**message, "content": self._filter.redact(content)})
-            else:
-                out.append(message)
-        return out
+        return [self._redact(message) for message in messages]
 
     def chat(
         self,

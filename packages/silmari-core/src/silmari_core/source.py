@@ -41,10 +41,11 @@ def _first_table(sql: str, dialect: str | None = None) -> str:
 
 
 def _matches(referenced: str, declared: str) -> bool:
-    referenced, declared = referenced.lower(), declared.lower()
-    if "." in declared and "." in referenced:
-        return referenced == declared
-    return referenced.split(".")[-1] == declared.split(".")[-1]
+    # Strict, exact (case-insensitive) match. Bare and qualified names do NOT cross-match, so a
+    # scope of ["orders"] never admits "evil.orders", and ["demo.orders"] never admits a bare
+    # "orders" the engine could resolve to a different schema via search_path. Declare the scope
+    # and write queries with consistent qualification.
+    return referenced.lower() == declared.lower()
 
 
 class DataSource(ABC):
@@ -82,14 +83,26 @@ class DataSource(ABC):
 
     # --- public surface (guard + audit live here; adapters cannot bypass) ---
     def query(self, sql: str, *, run_id: str = "") -> list[dict[str, Any]]:
-        assert_read_only(sql, dialect=self._dialect)
+        target = _first_table(sql, self._dialect)
+        try:
+            assert_read_only(sql, dialect=self._dialect)
+        except Exception:
+            self.audit.record("query", run_id=run_id, target=target, outcome="denied")
+            raise
         start = time.perf_counter()
-        rows = self._execute(sql)
+        try:
+            rows = self._execute(sql)
+        except Exception:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            self.audit.record(
+                "query", run_id=run_id, target=target, duration_ms=duration_ms, outcome="error"
+            )
+            raise
         duration_ms = int((time.perf_counter() - start) * 1000)
         self.audit.record(
             "query",
             run_id=run_id,
-            target=_first_table(sql, self._dialect),
+            target=target,
             row_count=len(rows),
             duration_ms=duration_ms,
         )
@@ -100,10 +113,13 @@ class DataSource(ABC):
         return [self._masking.mask(row) for row in rows]
 
     def stats(self, table: str, column: str, *, run_id: str = "") -> list[dict[str, Any]]:
-        return self.query(
+        # Mask the grouped column too — otherwise stats() would leak the full distinct set of a
+        # sensitive column under the guise of frequency counts (sample() already masks).
+        rows = self.query(
             f"SELECT {column}, COUNT(*) AS n FROM {table} GROUP BY {column} LIMIT 50",
             run_id=run_id,
         )
+        return [self._masking.mask(row) for row in rows]
 
     def schema(self, table: str | None = None, *, run_id: str = "") -> Any:
         result = self._schema(table)
@@ -129,8 +145,14 @@ class ScopedSource:
         allowed = self._access.tables
         if not allowed:
             return  # empty allowlist == unscoped
+        # A file/function data source (e.g. DuckDB read_csv(), FROM 'file.parquet') resolves to an
+        # unresolved/empty reference that matches nothing in the allowlist — so scoping fails
+        # closed rather than letting an unrecognized source through. See tests/test_threat_model.py.
         for referenced in tables_referenced(sql, dialect=self._source._dialect):
             if not any(_matches(referenced, declared) for declared in allowed):
+                self._source.audit.record(
+                    "query", run_id=self._run_id, target=referenced, outcome="denied"
+                )
                 raise ScopeViolation(
                     f"query reads a table outside the declared scope: {referenced!r} "
                     f"(allowed: {sorted(allowed)})"

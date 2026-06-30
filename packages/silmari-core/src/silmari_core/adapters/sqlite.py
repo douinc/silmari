@@ -33,6 +33,13 @@ class SQLiteSource(DataSource):
         else:
             self._con = sqlite3.connect(database or ":memory:", check_same_thread=False)
         self._con.row_factory = sqlite3.Row
+        # Defense-in-depth: SELECT load_extension('...') parses as a read but loads native code.
+        # Keep it off explicitly (also the CPython default). Builds without extension support
+        # raise here and are already safe.
+        try:
+            self._con.enable_load_extension(False)
+        except (AttributeError, sqlite3.NotSupportedError):
+            pass
         if read_only:
             self._con.execute("PRAGMA query_only = ON")
 

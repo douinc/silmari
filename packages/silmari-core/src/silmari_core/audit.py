@@ -30,6 +30,7 @@ class AuditRow(AuditBase):
     target: Mapped[str] = mapped_column(String, default="")
     row_count: Mapped[int] = mapped_column(Integer, default=0)
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    outcome: Mapped[str] = mapped_column(String, default="ok")  # ok | denied | error
 
 
 def _is_memory(url: str) -> bool:
@@ -72,6 +73,7 @@ class AuditLog:
         target: str = "",
         row_count: int = 0,
         duration_ms: int = 0,
+        outcome: str = "ok",
     ) -> None:
         with Session(self._engine) as session:
             session.add(
@@ -82,6 +84,7 @@ class AuditLog:
                     target=target,
                     row_count=row_count,
                     duration_ms=duration_ms,
+                    outcome=outcome,
                 )
             )
             session.commit()
@@ -99,6 +102,7 @@ class AuditLog:
                     "target": r.target,
                     "row_count": r.row_count,
                     "duration_ms": r.duration_ms,
+                    "outcome": r.outcome,
                 }
                 for r in rows
             ]

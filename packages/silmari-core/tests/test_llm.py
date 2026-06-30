@@ -50,3 +50,34 @@ def test_chat_returns_assistant_message(monkeypatch) -> None:
     monkeypatch.setattr(llm_mod.httpx, "post", _capture_post({}))
     msg = LLMClient(Settings()).chat([{"role": "user", "content": "hi"}], model="local/x")
     assert msg == {"role": "assistant", "content": "ok"}
+
+
+def test_chat_redacts_list_content_blocks(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(llm_mod.httpx, "post", _capture_post(captured))
+    LLMClient(Settings()).chat(
+        [{"role": "user", "content": [{"type": "text", "text": "email a@b.com"}]}],
+        model="openai/gpt-4",
+    )
+    block = captured["json"]["messages"][0]["content"][0]
+    assert "[EMAIL]" in block["text"]
+    assert "a@b.com" not in block["text"]
+
+
+def test_chat_redacts_tool_call_arguments(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(llm_mod.httpx, "post", _capture_post(captured))
+    LLMClient(Settings()).chat(
+        [
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {"id": "1", "function": {"name": "search", "arguments": '{"q": "a@b.com"}'}}
+                ],
+            }
+        ],
+        model="openai/gpt-4",
+    )
+    args = captured["json"]["messages"][0]["tool_calls"][0]["function"]["arguments"]
+    assert "[EMAIL]" in args
+    assert "a@b.com" not in args

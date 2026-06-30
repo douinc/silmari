@@ -36,3 +36,15 @@ def test_file_backed(tmp_path) -> None:
     audit.record("query", target="t")
     # a fresh handle to the same file sees the row (durable)
     assert AuditLog(url).entries()[0]["target"] == "t"
+
+
+def test_outcome_default_ok() -> None:
+    audit = AuditLog()
+    audit.record("query")
+    assert audit.entries()[-1]["outcome"] == "ok"
+
+
+def test_outcome_recorded() -> None:
+    audit = AuditLog()
+    audit.record("query", outcome="denied")
+    assert audit.entries()[-1]["outcome"] == "denied"

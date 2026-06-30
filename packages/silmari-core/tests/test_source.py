@@ -80,6 +80,59 @@ def test_scoped_empty_allowlist_is_unscoped() -> None:
     assert len(scoped.query("SELECT * FROM demo.secret")) == 1
 
 
-def test_scoped_bare_name_matches_qualified() -> None:
+def test_scoped_strict_bare_does_not_match_qualified() -> None:
+    # No cross-schema widening: a bare scope entry does not admit a schema-qualified read.
     scoped = make().scoped(DataAccess(tables=["orders"]))
-    assert len(scoped.query("SELECT * FROM demo.orders")) == 2
+    with pytest.raises(ScopeViolation):
+        scoped.query("SELECT * FROM demo.orders")
+
+
+def test_scoped_bare_matches_bare() -> None:
+    scoped = make().scoped(DataAccess(tables=["orders"]))
+    assert len(scoped.query("SELECT * FROM orders")) == 2
+
+
+def test_scoped_qualified_blocks_other_schema_same_name() -> None:
+    scoped = make().scoped(DataAccess(tables=["demo.orders"]))
+    with pytest.raises(ScopeViolation):
+        scoped.query("SELECT * FROM evil.orders")
+
+
+# ------------------------------------------------------------------- audit outcomes
+
+
+def test_successful_query_outcome_ok() -> None:
+    src = make()
+    src.query("SELECT * FROM demo.orders")
+    assert src.audit.entries()[-1]["outcome"] == "ok"
+
+
+def test_readonly_denial_is_audited() -> None:
+    src = make()
+    with pytest.raises(ReadOnlyViolation):
+        src.query("DELETE FROM demo.orders")
+    assert src.audit.entries()[-1]["outcome"] == "denied"
+
+
+def test_scope_denial_is_audited() -> None:
+    src = make()
+    scoped = src.scoped(DataAccess(tables=["demo.orders"]), run_id="r1")
+    with pytest.raises(ScopeViolation):
+        scoped.query("SELECT * FROM demo.secret")
+    last = src.audit.entries()[-1]
+    assert last["outcome"] == "denied"
+    assert last["target"] == "demo.secret"
+
+
+# ------------------------------------------------------------------- stats masking
+
+
+def test_stats_masks_sensitive_column() -> None:
+    from silmari_core.masking import ColumnMasking
+
+    src = MockSource(
+        {"t": [{"email": "a@x"}, {"email": "b@x"}]},
+        audit=AuditLog(),
+        masking=ColumnMasking(["email"]),
+    )
+    assert all(row["email"] == "***" for row in src.stats("t", "email"))
