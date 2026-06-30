@@ -182,3 +182,13 @@ class ResultStore:
                 stmt = stmt.where(RunRow.status == status)
             stmt = stmt.order_by(RunRow.created_at.desc(), RunRow.run_id.desc()).limit(limit)
             return [_to_stored(r) for r in session.scalars(stmt).all()]
+
+    def recent(self, limit: int = 50) -> list[StoredRun]:
+        """Most-recent runs across all bots (newest first)."""
+        with self._lock, Session(self._engine) as session:
+            stmt = (
+                select(RunRow)
+                .order_by(RunRow.created_at.desc(), RunRow.run_id.desc())
+                .limit(limit)
+            )
+            return [_to_stored(r) for r in session.scalars(stmt).all()]

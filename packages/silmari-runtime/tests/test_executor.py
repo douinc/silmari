@@ -47,3 +47,18 @@ def test_start_run_daemon_thread(tmp_path) -> None:
     assert final is not None
     assert final.status == STATUS_COMPLETED
     assert len(final.data) == 1
+
+
+def test_run_bot_publishes_lifecycle_events() -> None:
+    from silmari_runtime.sinks import EventBus
+
+    record = load_registry(EXAMPLES)["example-signal"]
+    bus = EventBus()
+    q = bus.subscribe()
+    run_bot(record, _source(), ResultStore(), bus=bus)
+
+    types = []
+    while not q.empty():
+        types.append(q.get_nowait()["type"])
+    assert "run_started" in types
+    assert "run_completed" in types

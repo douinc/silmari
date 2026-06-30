@@ -56,6 +56,8 @@ def load_bot(bot_dir: str | Path) -> BotRecord:
 
 def load_registry(bots_dir: str | Path) -> dict[str, BotRecord]:
     bots_dir = Path(bots_dir)
+    if not bots_dir.exists():
+        return {}
     registry: dict[str, BotRecord] = {}
     for child in sorted(bots_dir.iterdir()):
         if not (child / "manifest.yaml").exists():
