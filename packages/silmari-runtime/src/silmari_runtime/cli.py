@@ -1,4 +1,4 @@
-"""Minimal CLI: ``silmari run <bot_id>``. Expanded in a later milestone (demo / new-bot / serve)."""
+"""Silmari CLI: ``run`` a bot, ``new-bot`` to scaffold one, ``serve`` the API, ``demo``."""
 
 from __future__ import annotations
 
@@ -42,12 +42,13 @@ def _run(args: argparse.Namespace) -> int:
         print(f"unknown bot: {args.bot_id} (available: {sorted(registry)})", file=sys.stderr)
         return 1
     demo_dir: str | None = None
-    if args.source is None:
-        source_url, demo_dir = _demo_source()
-    else:
-        source_url = args.source
-    source = connect(source_url)
+    source = None
     try:
+        if args.source is None:
+            source_url, demo_dir = _demo_source()
+        else:
+            source_url = args.source
+        source = connect(source_url)
         store = ResultStore(args.store)
         run = run_bot(registry[args.bot_id], source, store, trigger="manual")
         print(f"run {run.run_id}: {run.status} — {len(run.data)} signal(s)")
@@ -55,20 +56,114 @@ def _run(args: argparse.Namespace) -> int:
             print(run.summary)
         return 0
     finally:
-        source.close()
+        if source is not None:
+            source.close()
         if demo_dir:
             shutil.rmtree(demo_dir, ignore_errors=True)
+
+
+def _new_bot(args: argparse.Namespace) -> int:
+    from .scaffold import create_bot
+
+    try:
+        path = create_bot(args.bot_id, kind=args.kind, name=args.name, bots_dir=args.bots_dir)
+    except (ValueError, FileExistsError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"created {path}")
+    return 0
+
+
+def _serve(args: argparse.Namespace) -> int:  # pragma: no cover - blocking server
+    import uvicorn
+
+    from .api.app import create_app
+
+    source = connect(args.source) if args.source else None
+    try:
+        app = create_app(bots_dir=args.bots_dir, store=ResultStore(args.store), source=source)
+        uvicorn.run(app, host=args.host, port=args.port)
+    finally:
+        if source is not None:
+            source.close()
+    return 0
+
+
+_DEMO_RULESET = {
+    "id_field": "host",
+    "rules": [
+        {
+            "rule_id": 1,
+            "label": "high_cpu",
+            "conditions": {"criteria": [{"field": "cpu", "operator": "gt", "value": 90}]},
+        },
+        {
+            "rule_id": 2,
+            "label": "status_timeout",
+            "conditions": {
+                "criteria": [
+                    {"field": "status_text", "operator": "text_present", "value": "timeout"}
+                ]
+            },
+        },
+    ],
+}
+
+
+def _demo(args: argparse.Namespace) -> int:
+    from .ruleset import evaluate, validate_ruleset
+
+    source = None
+    tmpdir = None
+    try:
+        url, tmpdir = _demo_source()
+        source = connect(url)
+        rows = source.query("SELECT * FROM metrics")
+        report = validate_ruleset(_DEMO_RULESET)
+        if report.doc is None:
+            print("demo ruleset is invalid", file=sys.stderr)
+            return 1
+        signals = evaluate(report.doc, rows)
+        print(f"Silmari demo — {len(signals)} review-priority signal(s) from {len(rows)} rows:")
+        for sig in signals:
+            print(f"  - {sig.target_id}: {sig.label}  [{sig.note}]")
+        return 0
+    finally:
+        if source is not None:
+            source.close()
+        if tmpdir is not None:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="silmari")
     sub = parser.add_subparsers(dest="command", required=True)
+
     run_p = sub.add_parser("run", help="run a bot once and store its signals")
     run_p.add_argument("bot_id")
     run_p.add_argument("--bots-dir", default="bots")
     run_p.add_argument("--source", default=None, help="data source URL (default: seeded demo)")
     run_p.add_argument("--store", default="sqlite://", help="result store URL")
     run_p.set_defaults(func=_run)
+
+    new_p = sub.add_parser("new-bot", help="scaffold a new bot")
+    new_p.add_argument("bot_id")
+    new_p.add_argument("--kind", default="signal", choices=["signal", "prediction"])
+    new_p.add_argument("--name", default=None)
+    new_p.add_argument("--bots-dir", default="bots")
+    new_p.set_defaults(func=_new_bot)
+
+    serve_p = sub.add_parser("serve", help="serve the HTTP API (uvicorn)")
+    serve_p.add_argument("--host", default="127.0.0.1")
+    serve_p.add_argument("--port", type=int, default=8000)
+    serve_p.add_argument("--bots-dir", default="bots")
+    serve_p.add_argument("--source", default=None)
+    serve_p.add_argument("--store", default="sqlite://")
+    serve_p.set_defaults(func=_serve)
+
+    demo_p = sub.add_parser("demo", help="run a self-contained ruleset demo")
+    demo_p.set_defaults(func=_demo)
+
     args = parser.parse_args(argv)
     return int(args.func(args))
 

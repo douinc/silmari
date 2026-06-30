@@ -64,6 +64,11 @@ class DataSource(ABC):
         # thread pool, daemon start_run). A single DB connection is not safe for concurrent use.
         self._lock = threading.RLock()
 
+    @property
+    def masking(self) -> MaskingPolicy:
+        """The masking policy applied to ``sample()`` (and by callers that mask query results)."""
+        return self._masking
+
     @classmethod
     def connect(
         cls,
