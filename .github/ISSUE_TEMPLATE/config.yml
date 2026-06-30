@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/douinc/silmari/security/advisories/new
+    about: Report security issues privately — do not open a public issue (see SECURITY.md).
+  - name: Question / docs
+    url: https://github.com/douinc/silmari/blob/main/docs/architecture.md
+    about: Start with the architecture and spec docs.

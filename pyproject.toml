@@ -3,7 +3,7 @@
 [project]
 name = "silmari-workspace"
 version = "0"
-description = "Silmari monorepo workspace root."
+description = "Silmari uv workspace root — contains silmari-core and silmari-runtime."
 requires-python = ">=3.14"
 dependencies = [
     "silmari-core",
