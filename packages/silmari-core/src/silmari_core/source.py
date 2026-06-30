@@ -59,6 +59,20 @@ class DataSource(ABC):
         self._dialect = dialect
         self._masking: MaskingPolicy = masking or NoMasking()
 
+    @classmethod
+    def connect(
+        cls,
+        url: str,
+        *,
+        read_only: bool = True,
+        audit: AuditLog | None = None,
+        masking: MaskingPolicy | None = None,
+    ) -> DataSource:
+        """Open a read-only data source from a URL (``duckdb:///...`` or ``sqlite:///...``)."""
+        from .adapters import connect as _connect
+
+        return _connect(url, read_only=read_only, audit=audit, masking=masking)
+
     # --- adapter implements only these two ---
     @abstractmethod
     def _execute(self, sql: str) -> list[dict[str, Any]]: ...
