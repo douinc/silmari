@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from .agent import AgentResult, AgentSession
+from .agent.conversation import ConversationStore
+from .agent.register import BotProposal, propose_bot
 from .context import BotResult, Context
 from .executor import run_bot, start_run
 from .manifest import BotManifest
@@ -17,6 +20,7 @@ from .ruleset import (
     run_ruleset,
     validate_ruleset,
 )
+from .scaffold import create_bot
 from .scheduler import build_scheduler
 from .signal import NOT_A_VERDICT, Signal, confidence_band, result, signal
 from .sinks import EventBus, Subscription, SubscriptionStore
@@ -29,10 +33,14 @@ __version__ = "0.1.0"
 
 __all__ = [
     "NOT_A_VERDICT",
+    "AgentResult",
+    "AgentSession",
     "BotManifest",
+    "BotProposal",
     "BotRecord",
     "BotResult",
     "Context",
+    "ConversationStore",
     "EventBus",
     "Proposal",
     "ProposalStore",
@@ -50,10 +58,12 @@ __all__ = [
     "__version__",
     "build_scheduler",
     "confidence_band",
+    "create_bot",
     "evaluate",
     "load_bot",
     "load_registry",
     "merge_ruleset",
+    "propose_bot",
     "result",
     "run_bot",
     "run_ruleset",
