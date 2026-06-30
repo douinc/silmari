@@ -198,8 +198,12 @@ src.scoped(DataAccess(tables=["demo.orders"]), run_id="r1").query("SELECT ...")
 Also exports: `SensitiveFilter`, `LLMClient`, `AuditLog`, masking-policy config.
 
 ### silmari-runtime
-`load_registry(dir)`, `run_bot(...)`, `start_run(...)`, scheduler, review store + tuning, agent
+`load_registry(dir)`, `run_bot(...)`, `start_run(...)`, scheduler, review store + tuning,
+prediction builders (`prediction()`, `prediction_result()` for `kind: prediction` bots), agent
 authoring (`AgentSession`, local-only).
+
+FastAPI surface (under `/v1`): `bots`, `runs`, review, `subscriptions` (SSE), `admin`, and a
+read-only **data browser** (`/v1/data`) for schema/sample/stats over the scoped source.
 
 ### CLI
 ```
@@ -281,15 +285,18 @@ Mono-repo, two packages (dbt-core / LiteLLM precedent); `silmari-core` ships sta
 - [x] **M3 — ruleset engine:** declarative rules → Signals + proposal/validate/approve flow.
 - [x] **M4 — delivery & review:** event bus + SSE + webhook sinks + review loop + threshold tuning.
 - [x] **M5 — authoring:** local-only agent harness (tool-use loop) + CLI.
-- [ ] **M6 — polish:** docs + LICENSE/SECURITY/CONTRIBUTING + naming pass. (Frontend reference UI optional, not yet built.)
+- [x] **M6 — polish:** docs + LICENSE/SECURITY/CONTRIBUTING + naming pass + frontend reference UI (with Playwright e2e).
+- [x] **M7 — round-out:** Postgres adapter + read-only data browser (`/v1/data`) + `kind: prediction` builder.
 
 ---
 
-## 10. Open decisions
+## 10. Decisions (resolved)
 
-- Mono-repo vs two repos (default: mono, two packages).
-- Postgres read-only via role vs session setting (recommend: require read-only role; session as backstop).
-- Ruleset operator vocabulary — keep generic; optional standard-vocabulary mapping is a *domain
-  overlay* concern, not core.
-- Naming of `DataSource` methods (`query/sample/stats/schema`) — confirm.
-- Confirm AGPL-3.0-or-later; add `SECURITY.md` (dual-use / responsible-use) and `CONTRIBUTING.md`.
+- **Mono-repo** with two packages (not two repos) — `silmari-core` still ships standalone via pip.
+- **Postgres read-only:** enforced at the **session level** (`SET default_transaction_read_only =
+  on`) as defense-in-depth; production should still point at a dedicated read-only DB role.
+- **Ruleset operator vocabulary** kept generic; any standard-vocabulary mapping stays a *domain
+  overlay* concern, out of core.
+- **`DataSource` method names** confirmed: `query` / `sample` / `stats` / `schema` / `scoped`.
+- **License:** AGPL-3.0-or-later, with `SECURITY.md` (dual-use / responsible-use) and
+  `CONTRIBUTING.md` added.
