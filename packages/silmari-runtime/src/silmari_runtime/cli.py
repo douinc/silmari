@@ -38,39 +38,13 @@ def _demo_source() -> tuple[str, str]:
     return f"duckdb:///{path}", tmpdir
 
 
-_DEMO_BOT_PIPELINE = '''from silmari_runtime.signal import result, signal
-
-
-def run(context):
-    rows = context.source.query("SELECT id, total FROM orders")
-    flagged = [
-        signal(target_id=str(r["id"]), label="high_value", score=min(1.0, r["total"] / 100))
-        for r in rows
-        if r["total"] >= 75
-    ]
-    return result(flagged, label="high_value", as_of=context.as_of)
-'''
-
-
 def _demo_authoring_llm():
-    """A scripted local 'model': explore the demo source, then propose a high-value-orders bot.
-
-    Deterministic + offline, so ``serve --demo-data`` can demo the authoring agent with known code.
+    """The offline authoring-demo 'model' — deterministic, routes the user's ask to an example bot
+    over the seeded demo tables. Not a real LLM (see agent/demo.py); wire local/* for a live agent.
     """
-    from .agent.scripted import ScriptedLLM, say, tool_call
+    from .agent.demo import DemoAuthoringLLM
 
-    return ScriptedLLM(
-        [
-            tool_call("data_schema"),
-            tool_call(
-                "register_bot",
-                bot_id="high-value-orders",
-                pipeline_source=_DEMO_BOT_PIPELINE,
-                tables=["orders"],
-            ),
-            say("Proposed 'high-value-orders' — review the pipeline, then register it."),
-        ]
-    )
+    return DemoAuthoringLLM()
 
 
 def _run(args: argparse.Namespace) -> int:

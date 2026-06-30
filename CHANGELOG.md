@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The offline authoring demo (`serve --demo-data`) is now stateless and prompt-routed: it proposes
+  a validated bot on **every** request (the previous shared `ScriptedLLM` was exhausted after the
+  first) and routes the user's ask to one of a few example bots over the seeded `orders`/`metrics`
+  tables, exploring schema → sample → propose. See `silmari_runtime.agent.demo.DemoAuthoringLLM`.
+
 ## [0.1.0] - 2026-06-30
 
 Initial public release — the generic engine extracted from an on-premise

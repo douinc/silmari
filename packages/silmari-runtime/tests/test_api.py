@@ -283,3 +283,20 @@ def test_authoring_without_source_returns_503():
 
     client = _client(authoring_llm=ScriptedLLM([say("x")]))  # llm set, but no data source
     assert client.post("/v1/authoring/propose", json={"message": "x"}).status_code == 503
+
+
+def test_authoring_demo_model_is_repeatable_and_routed():
+    from silmari_runtime.agent.demo import DemoAuthoringLLM
+
+    source = MockSource(
+        {
+            "orders": [{"id": 1, "total": 100}],
+            "metrics": [{"host": "web-2", "cpu": 40, "status_text": "request timeout"}],
+        }
+    )
+    client = _client(source=source, authoring_llm=DemoAuthoringLLM())
+    # stateless: every request works (the old shared ScriptedLLM was exhausted after the first)
+    a = client.post("/v1/authoring/propose", json={"message": "flag high-value orders"}).json()
+    b = client.post("/v1/authoring/propose", json={"message": "find request timeouts"}).json()
+    assert a["proposal"]["valid"] and a["proposal"]["bot_id"] == "high-value-orders"
+    assert b["proposal"]["valid"] and b["proposal"]["bot_id"] == "status-timeouts"  # routed by ask

@@ -301,7 +301,7 @@
       agentLog.scrollTop = agentLog.scrollHeight;
       return node;
     }
-    appendMsg("agent", `Describe a bot and I'll explore the read-only source, then propose a validated pipeline for you to review. <span class="muted">(propose-only — nothing is activated)</span>`);
+    appendMsg("agent", `Describe a bot and I'll explore the read-only source, then propose a validated pipeline to review. <span class="muted">This offline demo recognises a few asks — try “high-value orders”, “request timeouts”, or “high CPU”. (propose-only; wire a local/* model for a live agent.)</span>`);
 
     async function propose() {
       const ta = document.getElementById("author-input");
