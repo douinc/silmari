@@ -27,32 +27,22 @@ model, and keep no audit trail. Silmari is **safe by default**:
 ## How it works
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph author["author a bot — once"]
-        direction TB
-        a1["hand-write<br/>manifest + pipeline / ruleset"]
-        a2["silmari new-bot<br/>(scaffold)"]
-        a3["authoring agent<br/>local-only · propose-only"]
+        direction LR
+        a1["hand-write"]
+        a2["silmari new-bot"]
+        a3["authoring agent<br/>(proposes · you review)"]
     end
-    bot["registered bot<br/>pipeline.py / ruleset.json"]
-    reg["registry + scheduler"]
-    src[("read-only<br/>data source")]
-    engine{{"Silmari engine<br/>read-only · scoped<br/>audited · redacted"}}
-    signals["실마리<br/>review-priority signals<br/>(never verdicts)"]
-    sinks["webhook · SSE · API"]
-    human(["human reviewer<br/>accept / reject"])
-    tuning["threshold tuning<br/>precision · recall · F1"]
-
-    a1 --> bot
-    a2 --> bot
-    a3 -->|you review| bot
-    bot --> reg
-    reg -->|cron / on demand| engine
-    src -. read-only .-> engine
-    engine -->|derive| signals
-    signals --> sinks --> human
-    human -. labels .-> tuning
-    tuning -. recommends threshold .-> engine
+    author --> bot["registered bot<br/>pipeline.py / ruleset.json"]
+    bot --> reg["registry + scheduler<br/>(cron · or on demand)"]
+    reg --> engine{{"Silmari engine<br/>read-only · scoped · audited · redacted"}}
+    src[("read-only<br/>data source")] -. read-only .-> engine
+    engine --> signals["실마리 — review-priority signals<br/>(never verdicts)"]
+    signals --> sinks["deliver · webhook / SSE / API"]
+    sinks --> human(["human reviewer<br/>accept / reject"])
+    human --> tuning["threshold tuning<br/>best accept/reject cutoff, learned from your reviews"]
+    tuning -. recommends cutoff .-> engine
 
     classDef default fill:#4a90d9,stroke:#6ab0ff,color:#fff
     classDef store fill:#2e7d57,stroke:#52c98a,color:#fff
