@@ -113,6 +113,9 @@ class DataSource(ABC):
     def scoped(self, access: DataAccess, *, run_id: str = "") -> ScopedSource:
         return ScopedSource(self, access, run_id)
 
+    def close(self) -> None:  # noqa: B027 — optional lifecycle hook; adapters override
+        """Release any underlying connection. No-op by default; adapters override."""
+
 
 class ScopedSource:
     """A table-scoped view of a :class:`DataSource`."""
