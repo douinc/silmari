@@ -20,7 +20,7 @@ flowchart TB
   subgraph core["silmari-core (governance library)"]
     guard["sql.py · sqlglot read-only guard + table extraction"]
     src["DataSource / ScopedSource"]
-    adp["adapters · DB-level read-only (DuckDB, SQLite)"]
+    adp["adapters · DB-level read-only (DuckDB, SQLite, Postgres)"]
     aud["audit (metadata only)"]
     mask["masking policy"]
     llm["llm · local-first redaction gate"]
@@ -39,9 +39,10 @@ Every guarantee is enforced in the base class, so no adapter can bypass it:
 - **`source.py`** — `DataSource` (ABC) implements `query/sample/stats/schema/scoped` on top of two
   adapter methods (`_execute/_schema`); the read-only guard and the audit write live here.
   `ScopedSource` rejects any query that reads a table outside the declared `DataAccess` allowlist.
-- **`adapters/`** — `DuckDBSource` (`read_only=True`, external file access off by default) and
-  `SQLiteSource` (`mode=ro` + `PRAGMA query_only`): the engine physically rejects writes. `connect()`
-  dispatches by URL.
+- **`adapters/`** — `DuckDBSource` (`read_only=True`, external file access off by default),
+  `SQLiteSource` (`mode=ro` + `PRAGMA query_only`), and `PostgresSource` (session
+  `default_transaction_read_only`; pair with a read-only role): the engine physically rejects
+  writes. `connect()` dispatches by URL; psycopg ships as an optional `postgres` extra.
 - **`audit.py`** — append-only, metadata-only audit (kind, target, row count, duration, outcome).
 - **`masking.py`** — configurable direct-identifier masking applied to sampled/queried rows.
 - **`sensitive.py` / `llm.py`** — a redaction floor + a `LLMClient` whose gate redacts every message
@@ -52,8 +53,9 @@ Every guarantee is enforced in the base class, so no adapter can bypass it:
 - **`manifest.py` / `registry.py`** — a bot is `manifest.yaml` (declared `data_access.tables`,
   trigger, kind, sinks) + `pipeline.py`; the registry loads them (one broken bot doesn't break the
   rest).
-- **`signal.py`** — the `Signal` (실마리) record + `signal()` / `result()` builders; every record
-  carries the not-a-verdict note; generic `target_id` + free-form `subject`.
+- **`signal.py` / `prediction.py`** — the `Signal` (실마리) record + `signal()` / `result()` builders,
+  plus `prediction()` / `prediction_result()` for `kind: prediction` (a probability in [0, 1] →
+  confidence band); every record carries the not-a-verdict note; generic `target_id` + `subject`.
 - **`context.py` / `executor.py`** — the executor scopes the source to the manifest's tables, builds
   the `Context`, runs `run(context) -> BotResult`, persists the result, and publishes lifecycle
   events. `run_bot` (inline) and `start_run` (daemon thread).
@@ -62,7 +64,8 @@ Every guarantee is enforced in the base class, so no adapter can bypass it:
 - **`store.py`** — run lifecycle (running/completed/failed) + persisted signals.
 - **`sinks.py`** — an in-process `EventBus` (drives SSE) + webhook subscriptions.
 - **`review.py`** — per-case accept/reject decisions + threshold tuning (precision/recall/F1).
-- **`api/`** — a FastAPI app (results, runs + SSE, review, subscriptions, admin), via `create_app`.
+- **`api/`** — a FastAPI app (results, runs + SSE, review, subscriptions, admin, and a read-only
+  data browser at `/v1/data`), via `create_app`.
 - **`agent/`** — a local-only tool-use loop that explores the read-only source and proposes a
   validated bot (`register_bot`).
 - **`scaffold.py` / `cli.py`** — `silmari new-bot/run/serve/demo`.

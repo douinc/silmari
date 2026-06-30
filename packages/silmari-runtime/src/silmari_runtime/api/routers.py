@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import queue
+import re
 import uuid
 from collections.abc import Iterator
 from dataclasses import asdict
@@ -14,6 +15,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from silmari_core import ReadOnlyViolation, ScopeViolation
 
 from ..executor import start_run
 from ..registry import load_registry
@@ -271,3 +273,78 @@ def reload_registry(request: Request) -> dict[str, Any]:
     request.app.state.registry = load_registry(request.app.state.bots_dir)
     registry = request.app.state.registry
     return {"reloaded": True, "bot_count": len(registry), "bot_ids": sorted(registry)}
+
+
+# ----------------------------------------------------------------- data (read-only browser)
+
+# A generic, read-only browser over the configured DataSource: list tables, a table's schema, a
+# masked sample, column stats, and an ad-hoc query — all through the DataSource read-only guard +
+# audit. Masking: /sample and /stats read a *validated* table/column, so name-based masking applies
+# to the real columns; /query takes arbitrary SQL, so its masking is a best-effort floor over direct
+# column names only — an aliased/computed column (e.g. SELECT secret AS x) is NOT masked. The API is
+# unauthenticated (see SECURITY.md) — deploy behind auth and a read-only DB role.
+
+data_router = APIRouter(prefix="/v1/data", tags=["data"])
+
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _require_source(request: Request) -> Any:
+    source = request.app.state.source
+    if source is None:
+        raise HTTPException(503, "no data source configured")
+    return source
+
+
+def _ident(name: str, *, dotted: bool = False) -> str:
+    """Accept only a bare (optionally schema-qualified) SQL identifier.
+
+    The table/column path params are interpolated into SQL by ``sample()``/``stats()``; validating
+    them here stops a caller from smuggling a subquery (e.g. ``(SELECT secret AS x FROM t) s``) that
+    would otherwise defeat the name-based masking on those endpoints.
+    """
+    parts = name.split(".") if dotted else [name]
+    if (dotted and len(parts) > 2) or not all(_IDENT.fullmatch(p) for p in parts):
+        raise HTTPException(400, f"invalid identifier: {name!r}")
+    return name
+
+
+@data_router.get("/tables")
+def list_tables(request: Request) -> dict[str, Any]:
+    return {"tables": _require_source(request).schema()}
+
+
+@data_router.get("/tables/{table}")
+def table_schema(table: str, request: Request) -> dict[str, Any]:
+    source = _require_source(request)
+    return {"table": table, "schema": source.schema(_ident(table, dotted=True))}
+
+
+@data_router.get("/tables/{table}/sample")
+def table_sample(table: str, request: Request, n: int = 10) -> dict[str, Any]:
+    source = _require_source(request)
+    rows = source.sample(_ident(table, dotted=True), max(1, min(int(n), 100)))
+    return {"table": table, "rows": rows}
+
+
+@data_router.get("/tables/{table}/columns/{column}/stats")
+def column_stats(table: str, column: str, request: Request) -> dict[str, Any]:
+    source = _require_source(request)
+    rows = source.stats(_ident(table, dotted=True), _ident(column))
+    return {"table": table, "column": column, "stats": rows}
+
+
+class QueryRequest(BaseModel):
+    sql: str
+
+
+@data_router.post("/query")
+def run_query(body: QueryRequest, request: Request) -> dict[str, Any]:
+    source = _require_source(request)
+    # Only the read-only/scope guard maps to a client error (400); a backend failure must surface as
+    # a 500, not be relabelled 400 with the raw error text leaked to the caller.
+    try:
+        rows = [source.masking.mask(row) for row in source.query(body.sql)]
+    except (ReadOnlyViolation, ScopeViolation) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"rows": rows}

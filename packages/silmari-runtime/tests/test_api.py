@@ -196,3 +196,47 @@ def test_ui_served_when_ui_dir_set():
     assert page.status_code == 200
     assert 'data-testid="bot-list"' in page.text
     assert client.get("/v1/bots").status_code == 200  # API routes still win over the static mount
+
+
+def test_data_browser_endpoints():
+    source = MockSource({"orders": [{"id": 1, "total": 100}, {"id": 2, "total": 50}]})
+    client = _client(source=source)
+    assert "orders" in str(client.get("/v1/data/tables").json()["tables"])
+    assert client.get("/v1/data/tables/orders").json()["table"] == "orders"
+    rows = client.get("/v1/data/tables/orders/sample?n=1").json()["rows"]
+    assert len(rows) == 1 and rows[0]["id"] == 1
+    assert client.get("/v1/data/tables/orders/columns/total/stats").status_code == 200
+    q = client.post("/v1/data/query", json={"sql": "SELECT * FROM orders"})
+    assert q.status_code == 200 and len(q.json()["rows"]) == 2
+
+
+def test_data_query_rejects_writes_400():
+    client = _client(source=MockSource({"orders": []}))
+    assert client.post("/v1/data/query", json={"sql": "DELETE FROM orders"}).status_code == 400
+
+
+def test_data_browser_503_without_source():
+    assert _client().get("/v1/data/tables").status_code == 503
+
+
+def test_data_query_masks_results():
+    from silmari_core import ColumnMasking
+
+    source = MockSource({"t": [{"id": 1, "email": "a@b.com"}]}, masking=ColumnMasking(["email"]))
+    rows = _client(source=source).post("/v1/data/query", json={"sql": "SELECT * FROM t"}).json()
+    assert rows["rows"][0] == {"id": 1, "email": "***"}  # masked into the response
+
+
+def test_data_sample_rejects_non_identifier_table():
+    # a subquery smuggled as the {table} segment (the masking-bypass vector) is rejected outright
+    client = _client(source=MockSource({"t": [{"id": 1}]}))
+    assert client.get("/v1/data/tables/(SELECT id, email AS x FROM t) s/sample").status_code == 400
+    assert client.get("/v1/data/tables/t-x/sample").status_code == 400  # any non-identifier
+
+
+def test_data_sample_masks_a_real_table():
+    from silmari_core import ColumnMasking
+
+    source = MockSource({"t": [{"id": 1, "email": "a@b.com"}]}, masking=ColumnMasking(["email"]))
+    rows = _client(source=source).get("/v1/data/tables/t/sample").json()["rows"]
+    assert rows[0] == {"id": 1, "email": "***"}  # validated table -> masking applies for real

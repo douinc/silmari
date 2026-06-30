@@ -18,6 +18,7 @@ from ..store import ResultStore
 from .routers import (
     admin_router,
     bots_router,
+    data_router,
     review_router,
     runs_router,
     subscriptions_router,
@@ -75,7 +76,14 @@ def create_app(
     app.state.bus = bus or EventBus()
     app.state.source = source
 
-    for router in (bots_router, runs_router, review_router, subscriptions_router, admin_router):
+    for router in (
+        bots_router,
+        runs_router,
+        review_router,
+        subscriptions_router,
+        admin_router,
+        data_router,
+    ):
         app.include_router(router)
 
     @app.get("/health")

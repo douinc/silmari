@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .duckdb import DuckDBSource
+from .postgres import PostgresSource
 from .sqlite import SQLiteSource
 
 if TYPE_CHECKING:
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
     from ..masking import MaskingPolicy
     from ..source import DataSource
 
-__all__ = ["DuckDBSource", "SQLiteSource", "connect"]
+__all__ = ["DuckDBSource", "PostgresSource", "SQLiteSource", "connect"]
 
 
 def _path(url: str, scheme: str) -> str:
@@ -35,8 +36,9 @@ def connect(
 ) -> DataSource:
     """Open a read-only data source from a URL.
 
-    Supported schemes: ``duckdb://`` and ``sqlite://`` (e.g. ``duckdb:///demo.db``,
-    ``sqlite:///demo.sqlite``, ``duckdb://`` for in-memory).
+    Supported schemes: ``duckdb://``, ``sqlite://`` (e.g. ``duckdb:///demo.db``,
+    ``sqlite:///demo.sqlite``, ``duckdb://`` for in-memory), and ``postgresql://`` /
+    ``postgres://`` (the whole URL is passed to psycopg as the DSN).
     """
     if url.startswith("duckdb://"):
         return DuckDBSource(
@@ -46,4 +48,6 @@ def connect(
         return SQLiteSource(
             _path(url, "sqlite://"), read_only=read_only, audit=audit, masking=masking
         )
+    if url.startswith(("postgresql://", "postgres://")):
+        return PostgresSource(url, read_only=read_only, audit=audit, masking=masking)
     raise ValueError(f"unsupported data source URL scheme: {url!r}")

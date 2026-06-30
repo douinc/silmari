@@ -55,6 +55,23 @@ def run(context: Context) -> BotResult:
     return result(signals, label="{schema_ref}", as_of=context.as_of)
 '''
 
+_PIPELINE_PREDICTION = '''"""{name} — score entities and emit review-priority predictions."""
+from __future__ import annotations
+
+from silmari_runtime.context import BotResult, Context
+from silmari_runtime.prediction import prediction, prediction_result
+
+
+def run(context: Context) -> BotResult:
+    rows = context.source.query("SELECT * FROM your_table")
+    predictions = [
+        # replace 0.5 with your model's probability in [0, 1] for this entity
+        prediction(target_id=str(row.get("id", "")), score=0.5, evidence=[])
+        for row in rows
+    ]
+    return prediction_result(predictions, label="{schema_ref}", as_of=context.as_of)
+'''
+
 _TEST = '''"""Smoke test for {bot_id} — expand with assertions against representative data."""
 import importlib.util
 from pathlib import Path
@@ -107,8 +124,9 @@ def create_bot(
         _MANIFEST.format(bot_id=bot_id, name=name, created_by=created_by, kind=kind),
         encoding="utf-8",
     )
+    pipeline_template = _PIPELINE_PREDICTION if kind == "prediction" else _PIPELINE
     (bot_dir / "pipeline.py").write_text(
-        _PIPELINE.format(name=name, schema_ref=schema_ref), encoding="utf-8"
+        pipeline_template.format(name=name, schema_ref=schema_ref), encoding="utf-8"
     )
     (bot_dir / "tests" / "test_pipeline.py").write_text(
         _TEST.format(bot_id=bot_id), encoding="utf-8"
