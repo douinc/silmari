@@ -63,5 +63,6 @@ privileged operation:
 
 ## Reporting a vulnerability
 
-Please report security issues privately to **security@example.com** (replace with the project
-contact) rather than opening a public issue. We aim to acknowledge within a few business days.
+Please report security issues **privately** via GitHub's private vulnerability reporting — the
+repository's **Security** tab → **Report a vulnerability** — rather than opening a public issue.
+We aim to acknowledge within a few business days.

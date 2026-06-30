@@ -2,7 +2,7 @@
 
 ``SensitiveFilter`` is the interface. ``RegexFilter`` is an always-on, network-free floor for
 common direct identifiers; ``NoFilter`` is a passthrough. Plug in a stronger model-based filter
-(e.g. the standalone phi-hook package) by implementing the ``SensitiveFilter`` protocol.
+(e.g. a model-based NER redactor) by implementing the ``SensitiveFilter`` protocol.
 """
 
 from __future__ import annotations

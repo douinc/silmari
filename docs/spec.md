@@ -1,11 +1,11 @@
 # Silmari — Implementation Spec
 
-*Status: draft v0 · Name: Silmari (실마리) · License: Apache-2.0 (planned)*
+*Status: v0.1 · Name: Silmari (실마리) · License: Apache-2.0*
 
-This is the buildable spec for Silmari, a governance-first engine that **derives review-priority
-signals (실마리) from rules over a read-only data source**. It is extracted as the generic engine
-from an on-premise clinical platform; all domain content (clinical rules, data, deployment) is
-out of scope and stays private.
+This is the spec for Silmari, a governance-first engine that **derives review-priority signals
+(실마리) from rules over a read-only data source**. It was extracted as the generic engine from an
+on-premise data-intelligence platform; all domain content (rules, data, deployment) is out of scope
+and stays private.
 
 ---
 
@@ -44,8 +44,8 @@ define, run, and review rules.
 | **P3** | ruleset engine (declarative rules → signals) + sinks/SSE + review loop |
 | **P4** | agent authoring (local-only) + CLI + frontend reference UI |
 
-Out of scope (private overlay): curated domain rulesets, real data, deployment configs, the
-Vertica adapter, the accumulated review labels.
+Out of scope (private overlay): curated domain rulesets, real data, deployment configs, and the
+accumulated review labels.
 
 ---
 
@@ -68,7 +68,7 @@ flowchart TB
         SF["sensitive-filter<br/>(redaction, local-first gate)"]:::l1
         LL["LLM client<br/>(LiteLLM)"]:::l1
     end
-    Adp["adapters<br/>SQLite · DuckDB · Postgres · (Vertica, private)"]
+    Adp["adapters<br/>SQLite · DuckDB · Postgres"]
 
     RT --> CO
     DS -.->|DATA_BACKEND plugin| Adp
@@ -78,7 +78,7 @@ flowchart TB
 ```
 trigger (cron / manual)
   → build Context(scoped read-only DataSource, config, run_id, as_of_date, emit)
-  → derive():  pipeline `derive(ctx) -> [Signal]`   OR   ruleset engine evaluates rules
+  → run():  pipeline `run(context) -> BotResult`   OR   ruleset engine evaluates rules
   → Signals (실마리) persisted to ResultStore
   → published to sinks (event bus → SSE / webhook)
   → human review (accept / reject / note) → threshold tuning
@@ -138,7 +138,7 @@ class DataSource(ABC):
   in. Builders (`signal()`, `result()`) attach the note + confidence band automatically.
 
 ### 4.3 Bot + Manifest (L2)
-A bot is a directory: `manifest.(yaml)` + `bot.py` (or a `ruleset.json`) + `tests/`.
+A bot is a directory: `manifest.yaml` + `pipeline.py` (or a `ruleset.json`) + `tests/`.
 
 ```yaml
 bot_id: example-signal
@@ -154,7 +154,7 @@ audit: { log_queries: true, log_outputs: true }
 ```
 
 Two authoring styles:
-- **Pipeline:** `def derive(ctx: Context) -> list[Signal]` (full Python).
+- **Pipeline:** `def run(context: Context) -> BotResult` (full Python).
 - **Declarative ruleset:** a `ruleset.json` evaluated by the engine (§4.4) — no code.
 
 ### 4.4 Ruleset engine (the "define rules → derive info" mechanic)
@@ -180,8 +180,8 @@ emits a Signal. This is the no-code path for domain experts.
 - The engine re-reads `ruleset.json` each run (hot-reload; no deploy step). Edits go through a
   proposal → validate → approve flow (L2 review).
 
-### 4.5 Context (passed to `derive`)
-`source` (ScopedSource), `config` (manifest dict), `run_id`, `as_of_date`, `summarize(text)->str`
+### 4.5 Context (passed to `run`)
+`source` (ScopedSource), `config` (manifest dict), `run_id`, `as_of`, `summarize(text)->str`
 (local LLM, optional), `emit(stage, detail)` (progress).
 
 ---
@@ -206,7 +206,7 @@ authoring (`AgentSession`, local-only).
 silmari demo                  # run the safety demo (DROP blocked / scope blocked / PII redacted / audited)
 silmari new-bot <id> --kind signal|prediction
 silmari run <bot_id>
-silmari serve                 # API + (later) frontend
+silmari serve                 # API (FastAPI)
 ```
 
 ---
@@ -248,10 +248,8 @@ silmari/                         (Apache-2.0)
 │  ├─ silmari-core/              L1: DataSource · ScopedSource · audit · sensitive-filter · llm
 │  │                                 + adapters (sqlite/duckdb/postgres, DB-level read-only)
 │  └─ silmari-runtime/           L2: registry · executor · ruleset engine · sinks · review · api · agent
-├─ examples/bots/                example signal + prediction bots (demo schema)
-├─ frontend/                     (P4) reference review/authoring UI
-├─ docs/                         spec · architecture · manifest schema · safety model
-├─ docker-compose.yml            dev (demo backend, LLM off)
+├─ examples/bots/                example signal + ruleset bots (synthetic demo data)
+├─ docs/                         spec · architecture · safety model
 ├─ pyproject.toml                workspace; uv
 └─ README.md · LICENSE · SECURITY.md · CONTRIBUTING.md
 ```
@@ -263,8 +261,9 @@ Mono-repo, two packages (dbt-core / LiteLLM precedent); `silmari-core` ships sta
 
 - **Python 3.11+**, packaged with **uv**.
 - **silmari-core:** `sqlglot` (read-only guard + table extraction), `sqlalchemy` (audit/result
-  stores), DB drivers (`duckdb`, `psycopg`, stdlib `sqlite3`), `httpx` (LLM via LiteLLM proxy),
-  dependency on the **phi-hook** sensitive-data filter package.
+  stores), DB drivers (`duckdb`, stdlib `sqlite3`; `psycopg` planned), `httpx` (LLM via a
+  LiteLLM-compatible proxy); a built-in regex redaction floor + a `SensitiveFilter` protocol for a
+  stronger model-based filter.
 - **silmari-runtime:** `fastapi` + `uvicorn`, `apscheduler` (3.x), `pydantic` v2.
 - **Optional analysis:** `pandas`, `scikit-learn`.
 - Everything runs **offline** by default (mock/demo backend, LLM off) — tests never require a live
@@ -274,14 +273,15 @@ Mono-repo, two packages (dbt-core / LiteLLM precedent); `silmari-core` ships sta
 
 ## 9. Build milestones
 
-- [ ] **M0 — core safety:** `DataSource` ABC + `assert_read_only`/`tables_referenced` (sqlglot) +
+- [x] **M0 — core safety:** `DataSource` ABC + `assert_read_only`/`tables_referenced` (sqlglot) +
   SQLite/DuckDB adapters (DB-level read-only) + `AuditLog` + tests + `silmari demo`.
-- [ ] **M1 — sensitive-filter:** phi-hook integration + `LLMClient` local-first gate + masking policy.
-- [ ] **M2 — runtime base:** manifest schema + registry/loader + executor + Signal model + ResultStore + example bots.
-- [ ] **M3 — ruleset engine:** declarative rules → Signals + proposal/validate/approve flow.
-- [ ] **M4 — delivery & review:** event bus + SSE + webhook sinks + review loop + threshold tuning.
-- [ ] **M5 — authoring:** local-only agent harness (tool-use loop) + CLI.
-- [ ] **M6 — polish:** frontend reference UI + docs + LICENSE/SECURITY/CONTRIBUTING + naming pass.
+- [x] **M1 — sensitive-filter:** regex redaction floor + `SensitiveFilter` protocol + `LLMClient`
+  local-first gate + masking policy.
+- [x] **M2 — runtime base:** manifest schema + registry/loader + executor + Signal model + ResultStore + example bots.
+- [x] **M3 — ruleset engine:** declarative rules → Signals + proposal/validate/approve flow.
+- [x] **M4 — delivery & review:** event bus + SSE + webhook sinks + review loop + threshold tuning.
+- [x] **M5 — authoring:** local-only agent harness (tool-use loop) + CLI.
+- [ ] **M6 — polish:** docs + LICENSE/SECURITY/CONTRIBUTING + naming pass. (Frontend reference UI optional, not yet built.)
 
 ---
 
@@ -289,7 +289,7 @@ Mono-repo, two packages (dbt-core / LiteLLM precedent); `silmari-core` ships sta
 
 - Mono-repo vs two repos (default: mono, two packages).
 - Postgres read-only via role vs session setting (recommend: require read-only role; session as backstop).
-- Ruleset operator vocabulary — keep generic; optional standard-vocabulary (LOINC/ATC/ICD) mapping
-  is a *domain overlay* concern, not core.
+- Ruleset operator vocabulary — keep generic; optional standard-vocabulary mapping is a *domain
+  overlay* concern, not core.
 - Naming of `DataSource` methods (`query/sample/stats/schema`) — confirm.
 - Confirm Apache-2.0; add `SECURITY.md` (dual-use / responsible-use) and `CONTRIBUTING.md`.
