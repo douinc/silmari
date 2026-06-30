@@ -225,3 +225,18 @@ def test_data_query_masks_results():
     source = MockSource({"t": [{"id": 1, "email": "a@b.com"}]}, masking=ColumnMasking(["email"]))
     rows = _client(source=source).post("/v1/data/query", json={"sql": "SELECT * FROM t"}).json()
     assert rows["rows"][0] == {"id": 1, "email": "***"}  # masked into the response
+
+
+def test_data_sample_rejects_non_identifier_table():
+    # a subquery smuggled as the {table} segment (the masking-bypass vector) is rejected outright
+    client = _client(source=MockSource({"t": [{"id": 1}]}))
+    assert client.get("/v1/data/tables/(SELECT id, email AS x FROM t) s/sample").status_code == 400
+    assert client.get("/v1/data/tables/t-x/sample").status_code == 400  # any non-identifier
+
+
+def test_data_sample_masks_a_real_table():
+    from silmari_core import ColumnMasking
+
+    source = MockSource({"t": [{"id": 1, "email": "a@b.com"}]}, masking=ColumnMasking(["email"]))
+    rows = _client(source=source).get("/v1/data/tables/t/sample").json()["rows"]
+    assert rows[0] == {"id": 1, "email": "***"}  # validated table -> masking applies for real
