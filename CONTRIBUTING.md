@@ -2,8 +2,7 @@
 
 Thanks for your interest. Silmari is the **generic engine** — governed, read-only, scoped,
 audited data access + a runtime that derives review-priority signals (실마리) from rules. Domain
-rule *content* (clinical or otherwise) is intentionally **out of scope** here; keep it in your
-own private overlay.
+rule *content* is intentionally **out of scope** here; keep it in your own private overlay.
 
 ## Project shape
 
@@ -15,10 +14,10 @@ own private overlay.
 
 ```bash
 # Python 3.11+, managed with uv
-uv sync --extra dev
+uv sync
 uv run pytest -q          # everything runs offline (demo backend, LLM off)
 uv run ruff check .
-uv run mypy packages
+uv run mypy packages/silmari-core/src packages/silmari-runtime/src
 ```
 
 The test suite must stay **green and offline** — never require a live database or external LLM.
@@ -42,8 +41,7 @@ discuss first.
 - Branch from `main`; keep PRs focused.
 - Include tests for new behavior; keep `pytest`/`ruff`/`mypy` green.
 - Use clear, imperative commit messages.
-- By contributing you agree your work is licensed under the project's Apache-2.0 license.
-  *(If a CLA/DCO is adopted, this section will be updated.)*
+- By contributing you agree your work is licensed under the project's Apache-2.0 license (no CLA).
 
 ## Reporting issues
 
