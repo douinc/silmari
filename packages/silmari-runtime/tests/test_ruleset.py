@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from silmari_core import DataAccess, MockSource
+from silmari_core import DataAccess, MockSource, ScopeViolation
 from silmari_runtime.context import Context
 from silmari_runtime.ruleset import (
     RulesetError,
@@ -84,9 +84,22 @@ def test_empty_criteria_is_unsupported_warning():
 
 
 def test_unknown_field_reported_not_silently_skipped():
-    report = validate_ruleset(_doc(_rule(1, _c("missing", "gt", 1))), known_fields={"cpu"})
+    report = validate_ruleset(_doc(_rule(1, _c("missing", "gt", 1))), known_fields={"cpu", "host"})
     assert report.valid
     assert report.unsupported and "missing" in report.unsupported[0].reason
+
+
+def test_text_present_requires_nonempty_string():
+    # value omitted -> None; without this guard it would match the substring "none"
+    report = validate_ruleset(_doc(_rule(1, {"field": "status", "operator": "text_present"})))
+    assert not report.valid
+    assert any("text_present" in e["msg"] for e in report.errors)
+
+
+def test_bool_value_not_accepted_as_numeric():
+    report = validate_ruleset(_doc(_rule(1, _c("cpu", "gt", True))))
+    assert not report.valid
+    assert any("numeric" in e["msg"] for e in report.errors)
 
 
 # --- evaluation ---
@@ -169,3 +182,64 @@ def test_merge_ruleset():
     assert merged["$schema_description"] == "new"
     assert merged["rules"] == [{"rule_id": 1}]
     assert merged["runtime_state"] == "keep"  # non-editable base key preserved
+
+
+# --- a ruleset is data, bounded by the bot's scope + read-only source ---
+
+
+def test_ruleset_cannot_read_outside_scope(tmp_path):
+    path = tmp_path / "ruleset.json"
+    path.write_text(json.dumps(_doc(_rule(1, _c("cpu", "gt", 90)), source_table="secret")))
+    with pytest.raises(ScopeViolation):  # source scoped to ["metrics"]
+        run_ruleset(_context(ROWS), path)
+
+
+def test_ruleset_source_injection_blocked(tmp_path):
+    path = tmp_path / "ruleset.json"
+    doc = _doc(_rule(1, _c("cpu", "gt", 90)), source_table="metrics; DROP TABLE metrics")
+    path.write_text(json.dumps(doc))
+    with pytest.raises(PermissionError):  # multi-statement / non-SELECT rejected by the guard
+        run_ruleset(_context(ROWS), path)
+
+
+# --- invariant: a rule reported unsupported is never also emitted ---
+
+
+def test_or_rule_with_one_present_criterion_fires_and_not_reported():
+    rule = _rule(1, _c("cpu", "gt", 90), _c("absent", "gt", 1), label="or_one", combination="or")
+    report = validate_ruleset(_doc(rule), known_fields={"host", "cpu"})
+    assert report.unsupported == []  # can still fire via the present criterion
+    fired = {s.target_id for s in evaluate(report.doc, ROWS, known_fields={"host", "cpu"})}
+    assert fired == {"a"}
+
+
+def test_and_rule_with_missing_field_reported_and_not_emitted():
+    rule = _rule(1, _c("cpu", "gt", 0), _c("absent", "gt", 1), label="and_miss")
+    report = validate_ruleset(_doc(rule), known_fields={"host", "cpu"})
+    assert report.unsupported and "absent" in report.unsupported[0].reason
+    assert evaluate(report.doc, ROWS, known_fields={"host", "cpu"}) == []  # reported => not emitted
+
+
+def test_reported_unsupported_never_emits(tmp_path):
+    path = tmp_path / "ruleset.json"
+    path.write_text(
+        json.dumps(
+            _doc(
+                _rule(1, _c("cpu", "gt", 90), label="ok"),
+                _rule(2, _c("ghost", "gt", 1), label="bad"),
+            )
+        )
+    )
+    res = run_ruleset(_context(ROWS), path)
+    reported = {u["rule_id"] for u in res.metadata["rules_unsupported"]}
+    emitted = {d["features"]["rule_id"] for d in res.data}
+    assert reported == {2}
+    assert reported.isdisjoint(emitted)  # the central invariant
+
+
+def test_id_field_mismatch_reported_and_not_emitted(tmp_path):
+    path = tmp_path / "ruleset.json"
+    path.write_text(json.dumps(_doc(_rule(1, _c("cpu", "gt", 90), label="x"), id_field="WRONGID")))
+    res = run_ruleset(_context(ROWS), path)
+    assert res.data == []  # no identity-less signals emitted
+    assert any("id field" in u["reason"] for u in res.metadata["rules_unsupported"])

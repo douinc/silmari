@@ -8,12 +8,16 @@ running bot picks up the change on its next run (hot-reload).
 from __future__ import annotations
 
 import json
+import os
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from .ruleset import RulesetError, ValidationReport, merge_ruleset, validate_ruleset
+
+_SAFE_BOT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 @dataclass
@@ -28,6 +32,13 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _atomic_write(path: Path, text: str) -> None:
+    """Write then atomically replace, so a concurrent reader never sees a torn file."""
+    tmp = path.with_name(f"{path.name}.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
 class ProposalStore:
     """At most one pending proposal per bot, stored as ``<directory>/<bot_id>.json``."""
 
@@ -36,6 +47,9 @@ class ProposalStore:
         self._dir.mkdir(parents=True, exist_ok=True)
 
     def _path(self, bot_id: str) -> Path:
+        # Guard against path traversal — bot_id is interpolated into a filename.
+        if not _SAFE_BOT_ID.fullmatch(bot_id):
+            raise RulesetError(f"invalid bot_id: {bot_id!r}")
         return self._dir / f"{bot_id}.json"
 
     def stage(self, bot_id: str, ruleset: dict[str, Any], *, reviewer: str = "") -> Proposal:
@@ -43,7 +57,8 @@ class ProposalStore:
         if not report.valid:
             raise RulesetError(f"invalid ruleset: {report.errors}")
         proposal = Proposal(bot_id=bot_id, reviewer=reviewer, created_at=_now(), ruleset=ruleset)
-        self._path(bot_id).write_text(
+        _atomic_write(
+            self._path(bot_id),
             json.dumps(
                 {
                     "bot_id": bot_id,
@@ -54,7 +69,6 @@ class ProposalStore:
                 ensure_ascii=False,
                 indent=2,
             ),
-            encoding="utf-8",
         )
         return proposal
 
@@ -87,6 +101,6 @@ class ProposalStore:
         live = Path(ruleset_path)
         base = json.loads(live.read_text(encoding="utf-8")) if live.exists() else {}
         merged = merge_ruleset(base, proposal.ruleset)
-        live.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+        _atomic_write(live, json.dumps(merged, ensure_ascii=False, indent=2))
         self.discard(bot_id)
         return report

@@ -126,18 +126,35 @@ class ValidationReport:
         }
 
 
-def _unsupported_reason(rule: Rule, known_fields: set[str] | None) -> str | None:
+def _is_number(value: Any) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
+def _unsupported_reason(
+    rule: Rule, known_fields: set[str] | None, *, id_field: str | None = None
+) -> str | None:
+    """Why a rule can never fire (so it is reported AND skipped). None means it can fire.
+
+    Combination-aware: under AND any unevaluable criterion means the rule never fires; under OR the
+    rule can still fire as long as one criterion is evaluable.
+    """
     if rule.conditions.is_empty():
         return "rule has no criteria; it would match nothing and never emit"
-    if known_fields is not None:
-        refs: set[str] = set()
-        for c in rule.conditions.criteria:
-            refs.add(c.field)
-            if c.baseline_field:
-                refs.add(c.baseline_field)
-        missing = sorted(refs - known_fields)
-        if missing:
-            return f"references fields not in the data: {missing}"
+    if known_fields is None:
+        return None
+    if id_field is not None and id_field not in known_fields:
+        return f"entity id field {id_field!r} is not in the data"
+
+    missing_per_criterion = []
+    for c in rule.conditions.criteria:
+        refs = {c.field} | ({c.baseline_field} if c.baseline_field else set())
+        missing_per_criterion.append(sorted(refs - known_fields))
+    missing_all = sorted({f for miss in missing_per_criterion for f in miss})
+
+    if rule.conditions.combination == "and" and any(missing_per_criterion):
+        return f"references fields not in the data: {missing_all}"
+    if rule.conditions.combination == "or" and all(missing_per_criterion):
+        return f"references fields not in the data: {missing_all}"
     return None
 
 
@@ -160,7 +177,7 @@ def validate_ruleset(
         seen.add(rule.rule_id)
         for j, c in enumerate(rule.conditions.criteria):
             loc = ["rules", str(i), "conditions", "criteria", str(j), "value"]
-            if c.operator in _NUMERIC_OPERATORS and not isinstance(c.value, int | float):
+            if c.operator in _NUMERIC_OPERATORS and not _is_number(c.value):
                 errors.append(
                     {"loc": loc, "msg": f"operator {c.operator!r} requires a numeric value"}
                 )
@@ -168,13 +185,17 @@ def validate_ruleset(
                 errors.append({"loc": loc, "msg": "relative_decrease requires 'baseline_field'"})
             if c.operator == "in" and not isinstance(c.value, list | tuple):
                 errors.append({"loc": loc, "msg": "operator 'in' requires a list value"})
+            if c.operator == "text_present" and not (isinstance(c.value, str) and c.value):
+                errors.append(
+                    {"loc": loc, "msg": "operator 'text_present' requires a non-empty string value"}
+                )
     if errors:
         return ValidationReport(valid=False, rule_count=len(doc.rules), errors=errors)
 
     unsupported = [
         RuleWarning(rule_id=r.rule_id, reason=reason)
         for r in doc.rules
-        if (reason := _unsupported_reason(r, known_fields))
+        if (reason := _unsupported_reason(r, known_fields, id_field=doc.id_field))
     ]
     return ValidationReport(
         valid=True, rule_count=len(doc.rules), unsupported=unsupported, doc=doc
@@ -244,11 +265,17 @@ def _signal_for(doc: RulesetDoc, rule: Rule, row: dict[str, Any], evidence: list
     )
 
 
-def evaluate(doc: RulesetDoc, rows: list[dict[str, Any]]) -> list[Signal]:
-    """Evaluate every rule against every row; empty-criteria rules never fire (see validate)."""
+def evaluate(
+    doc: RulesetDoc, rows: list[dict[str, Any]], *, known_fields: set[str] | None = None
+) -> list[Signal]:
+    """Evaluate every rule against every row.
+
+    A rule that can never fire (reported by :func:`_unsupported_reason`) is skipped, so a rule that
+    is reported as unsupported never also emits a signal.
+    """
     signals: list[Signal] = []
     for rule in doc.rules:
-        if rule.conditions.is_empty():
+        if _unsupported_reason(rule, known_fields, id_field=doc.id_field):
             continue
         for row in rows:
             matched, evidence = _evaluate_rule(rule, row)
@@ -274,24 +301,23 @@ def run_ruleset(context: Context, ruleset_path: str | Path) -> BotResult:
     unsupported = [
         {"rule_id": r.rule_id, "reason": reason}
         for r in doc.rules
-        if (reason := _unsupported_reason(r, known))
+        if (reason := _unsupported_reason(r, known, id_field=doc.id_field))
     ]
     return result(
-        evaluate(doc, rows),
+        evaluate(doc, rows, known_fields=known),
         label="ruleset",
         as_of=context.as_of,
         extra_metadata={"rules_total": len(doc.rules), "rules_unsupported": unsupported},
     )
 
 
+# The data source and entity id are author-fixed; ruleset *proposals* may edit rules + descriptive
+# metadata only — they cannot repoint source_table / query / id_field.
 _EDITABLE_METADATA_KEYS = (
     "$schema_description",
     "task",
     "criteria_operators",
     "source_columns",
-    "id_field",
-    "source_table",
-    "query",
 )
 
 

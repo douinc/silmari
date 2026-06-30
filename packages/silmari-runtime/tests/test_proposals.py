@@ -59,3 +59,8 @@ def test_approve_writes_live_ruleset_and_discards(tmp_path):
 def test_approve_without_proposal_raises(tmp_path):
     with pytest.raises(RulesetError):
         ProposalStore(tmp_path).approve("bot", tmp_path / "ruleset.json")
+
+
+def test_path_traversal_bot_id_rejected(tmp_path):
+    with pytest.raises(RulesetError):
+        ProposalStore(tmp_path).stage("../evil", VALID)
