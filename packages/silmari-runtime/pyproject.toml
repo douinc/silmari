@@ -10,7 +10,11 @@ dependencies = [
     "uvicorn[standard]>=0.29",
     "apscheduler>=3.10,<4",
     "pydantic>=2.6",
+    "pyyaml>=6.0",
 ]
+
+[project.scripts]
+silmari = "silmari_runtime.cli:main"
 
 [build-system]
 requires = ["hatchling"]

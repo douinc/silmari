@@ -802,6 +802,7 @@ dependencies = [
     { name = "apscheduler" },
     { name = "fastapi" },
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "silmari-core" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -811,6 +812,7 @@ requires-dist = [
     { name = "apscheduler", specifier = ">=3.10,<4" },
     { name = "fastapi", specifier = ">=0.110" },
     { name = "pydantic", specifier = ">=2.6" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "silmari-core", editable = "packages/silmari-core" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29" },
 ]
