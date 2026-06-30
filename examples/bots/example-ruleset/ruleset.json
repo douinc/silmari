@@ -1,0 +1,57 @@
+{
+  "$schema_description": "Silmari example ruleset (synthetic demo data) — flags anomalous host metrics as review-priority signals, not verdicts.",
+  "task": {
+    "match_logic": "AND",
+    "output_framing": "review-priority signal, not a verdict"
+  },
+  "id_field": "host",
+  "source_table": "metrics",
+  "criteria_operators": {
+    "gt": "current value greater than threshold",
+    "relative_decrease": "value dropped by >= N percent vs baseline_field",
+    "text_present": "substring present in the field's text"
+  },
+  "rules": [
+    {
+      "rule_id": 1,
+      "score": 0.8,
+      "label": "high_cpu",
+      "conditions": {
+        "combination": "and",
+        "criteria": [
+          { "field": "cpu", "operator": "gt", "value": 90 }
+        ]
+      },
+      "output": { "code": "HIGH_CPU", "title": "Sustained high CPU" }
+    },
+    {
+      "rule_id": 2,
+      "score": 0.7,
+      "label": "throughput_drop",
+      "conditions": {
+        "combination": "and",
+        "criteria": [
+          {
+            "field": "throughput",
+            "operator": "relative_decrease",
+            "baseline_field": "throughput_baseline",
+            "value": 50
+          }
+        ]
+      },
+      "output": { "code": "THRPT_DROP", "title": "Throughput dropped >= 50% vs baseline" }
+    },
+    {
+      "rule_id": 3,
+      "score": 0.6,
+      "label": "status_timeout",
+      "conditions": {
+        "combination": "and",
+        "criteria": [
+          { "field": "status_text", "operator": "text_present", "value": "timeout" }
+        ]
+      },
+      "output": { "code": "ERR_TIMEOUT", "title": "Timeout present in status text" }
+    }
+  ]
+}

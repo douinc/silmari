@@ -1,0 +1,26 @@
+bot_id: example-ruleset
+name: Example ruleset bot
+version: "0.1.0"
+created_via: manual
+kind: signal
+
+trigger:
+  type: schedule
+  cron: "0 6 * * *"
+  timezone: UTC
+
+data_access:
+  tables:
+    - metrics
+  scope: ""
+  as_of: D-1
+
+output:
+  format: json
+
+sinks:
+  - type: api
+
+audit:
+  log_queries: true
+  log_outputs: true

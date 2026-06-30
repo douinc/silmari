@@ -24,6 +24,14 @@ def _demo_source() -> tuple[str, str]:
     con = duckdb.connect(path)
     con.execute("CREATE TABLE orders(id INTEGER, total INTEGER)")
     con.execute("INSERT INTO orders VALUES (1, 100), (2, 50)")
+    con.execute(
+        "CREATE TABLE metrics(host VARCHAR, cpu INTEGER, throughput INTEGER, "
+        "throughput_baseline INTEGER, status_text VARCHAR)"
+    )
+    con.execute(
+        "INSERT INTO metrics VALUES ('web-1', 95, 40, 100, 'ok'), "
+        "('web-2', 40, 95, 100, 'request timeout')"
+    )
     con.close()
     return f"duckdb:///{path}", tmpdir
 
