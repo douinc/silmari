@@ -23,4 +23,7 @@ test("select bot, run, receive SSE completion, review a case, see tuning", async
   // Tuning reflects the labeled case.
   await page.getByTestId("tab-tuning").click();
   await expect(page.getByTestId("tuning")).toContainText("labeled 1");
+
+  // AGPL §13: the running service offers its source to every user.
+  await expect(page.getByTestId("source-link")).toBeVisible();
 });
