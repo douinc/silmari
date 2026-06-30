@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 // validated bot for review.
 test("author a bot via the agent — propose and review", async ({ page }) => {
   await page.goto("/");
-  await page.getByTestId("author-open").click();
+  // the agent dock is always present on the right — no toggle to open
   await page.getByTestId("author-input").fill("flag high-value orders");
   await page.getByTestId("author-propose").click();
 

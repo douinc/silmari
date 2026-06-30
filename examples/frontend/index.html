@@ -5,69 +5,171 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Silmari — reference UI</title>
+  <title>Silmari — review console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Distinctive pairing; degrades to the fallback stacks offline (e.g. CI / air-gapped). -->
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet" />
   <style>
-    :root { color-scheme: light dark; --bg:#0f1419; --panel:#1a212b; --line:#2b3441; --fg:#e6edf3;
-            --muted:#8b98a5; --accent:#4a90d9; --ok:#2e9e6b; --bad:#c4544f; }
-    * { box-sizing: border-box; }
-    body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); display:flex; flex-direction:column; height:100vh; }
-    header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); }
-    header h1 { font-size:16px; margin:0; }
-    .muted { color:var(--muted); }
-    .pill { font-size:12px; padding:1px 8px; border-radius:999px; border:1px solid var(--line); }
-    main { display:grid; grid-template-columns:220px 1fr 300px; flex:1; min-height:0; }
-    aside, section, .events { overflow:auto; padding:12px; }
-    aside { border-right:1px solid var(--line); }
-    .events { border-left:1px solid var(--line); }
-    h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 8px; }
-    .bot { padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; cursor:pointer; background:var(--panel); }
-    .bot.active { border-color:var(--accent); }
-    button { font:inherit; color:var(--fg); background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; }
-    button:hover { border-color:var(--accent); }
-    .tabs { display:flex; gap:6px; margin:12px 0; }
-    .tab.active { border-color:var(--accent); }
+    :root {
+      --ink:#0c0b09; --panel:#15120d; --panel-2:#1c1812; --line:#2c251b; --line-2:#3a3024;
+      --fg:#ece3d3; --muted:#94886f; --amber:#e0a23c; --amber-soft:#f0c987;
+      --teal:#62c08c; --clay:#d2705a;
+      --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+      --sans:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+      --display:"Fraunces",Georgia,"Times New Roman",serif;
+    }
+    * { box-sizing:border-box; }
+    html,body { height:100%; }
+    body {
+      margin:0; font:15px/1.55 var(--sans); color:var(--fg);
+      background:
+        radial-gradient(900px 380px at 70% -120px, rgba(224,162,60,.10), transparent 70%),
+        var(--ink);
+      display:flex; flex-direction:column; height:100vh; overflow:hidden;
+    }
+    .grain { position:fixed; inset:0; pointer-events:none; z-index:50; opacity:.04; mix-blend-mode:overlay;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+    /* ---- header ---- */
+    header { display:flex; align-items:baseline; gap:16px; padding:16px 22px 14px; border-bottom:1px solid var(--line);
+      animation:rise .5s ease both; }
+    .wordmark { font:600 23px/1 var(--display); letter-spacing:.2px; }
+    .wordmark em { font-style:italic; color:var(--amber-soft); }
+    .tagline { font:500 11px/1 var(--mono); text-transform:uppercase; letter-spacing:.16em; color:var(--muted); }
+    .health { margin-left:auto; font:500 11px/1 var(--mono); text-transform:uppercase; letter-spacing:.12em;
+      color:var(--muted); border:1px solid var(--line-2); border-radius:2px; padding:5px 9px; }
+    .health.ok { color:var(--teal); border-color:rgba(98,192,140,.4); }
+
+    /* ---- layout ---- */
+    main { display:grid; grid-template-columns:236px 1fr 392px; flex:1; min-height:0; }
+    .rail { border-right:1px solid var(--line); padding:18px 16px; overflow:auto; animation:rise .5s .05s ease both; }
+    .work { padding:24px 28px; overflow:auto; animation:rise .5s .1s ease both; }
+    .dock { border-left:1px solid var(--line); display:flex; flex-direction:column; min-height:0;
+      background:linear-gradient(180deg, rgba(224,162,60,.05), transparent 120px);
+      animation:rise .5s .15s ease both; }
+
+    .eyebrow { font:600 10px/1 var(--mono); text-transform:uppercase; letter-spacing:.2em; color:var(--muted); margin:0 0 12px; }
+
+    /* ---- bots ---- */
+    .bot { position:relative; padding:11px 12px 11px 14px; border:1px solid var(--line); border-radius:3px;
+      margin-bottom:7px; cursor:pointer; background:var(--panel); transition:border-color .15s, background .15s; }
+    .bot:hover { border-color:var(--line-2); background:var(--panel-2); }
+    .bot.active { border-color:rgba(224,162,60,.55); background:var(--panel-2); }
+    .bot.active::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:2px; background:var(--amber); border-radius:2px; }
+    .bot .name { font-weight:500; }
+    .bot .id { font:400 11px/1.3 var(--mono); color:var(--muted); }
+
+    /* ---- work area ---- */
+    .work h2 { font:600 26px/1.1 var(--display); margin:0 0 2px; }
+    .crumb { font:500 11px/1 var(--mono); text-transform:uppercase; letter-spacing:.16em; color:var(--muted); }
+    .tabs { display:flex; gap:18px; margin:20px 0 16px; border-bottom:1px solid var(--line); }
+    .tab { background:none; border:none; border-bottom:2px solid transparent; color:var(--muted); cursor:pointer;
+      padding:0 0 9px; font:600 11px/1 var(--mono); text-transform:uppercase; letter-spacing:.14em; }
+    .tab:hover { color:var(--fg); }
+    .tab.active { color:var(--amber-soft); border-color:var(--amber); }
+    .run { margin-left:auto; align-self:center; }
+
+    button { font:inherit; }
+    .btn { font:600 11px/1 var(--mono); text-transform:uppercase; letter-spacing:.1em; color:var(--ink);
+      background:var(--amber); border:none; border-radius:3px; padding:8px 13px; cursor:pointer; transition:filter .15s; }
+    .btn:hover { filter:brightness(1.08); }
+    .btn.ghost { background:transparent; color:var(--fg); border:1px solid var(--line-2); }
+    .btn.ghost:hover { border-color:var(--amber); color:var(--amber-soft); }
+
+    .tally { font:500 12px/1 var(--mono); color:var(--muted); letter-spacing:.04em; margin:0 0 14px; }
     table { width:100%; border-collapse:collapse; }
-    th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:top; }
-    .badge { font-size:11px; padding:1px 7px; border-radius:999px; }
-    .accepted { background:rgba(46,158,107,.18); color:var(--ok); }
-    .rejected { background:rgba(196,84,79,.18); color:var(--bad); }
-    .pending { color:var(--muted); }
-    code { background:rgba(127,127,127,.15); padding:1px 4px; border-radius:4px; }
-    .evt { font-size:12px; padding:4px 0; border-bottom:1px solid var(--line); }
+    th { text-align:left; font:600 10px/1 var(--mono); text-transform:uppercase; letter-spacing:.14em; color:var(--muted);
+      padding:0 10px 9px; border-bottom:1px solid var(--line); }
+    td { padding:11px 10px; border-bottom:1px solid var(--line); font-size:13.5px; vertical-align:top; }
+    td code, .mono { font:400 12px/1.45 var(--mono); }
+    .score { font:600 13px/1 var(--mono); color:var(--amber-soft); }
+    .badge { font:600 10px/1 var(--mono); text-transform:uppercase; letter-spacing:.08em; padding:3px 7px; border-radius:2px; }
+    .accepted { background:rgba(98,192,140,.16); color:var(--teal); }
+    .rejected { background:rgba(210,112,90,.16); color:var(--clay); }
+    .pending { background:rgba(148,136,111,.14); color:var(--muted); }
     .row-actions { display:flex; gap:6px; }
-    textarea { width:100%; min-height:80px; box-sizing:border-box; background:var(--panel); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:8px; font:inherit; }
-    pre { background:rgba(127,127,127,.12); padding:8px; border-radius:6px; overflow:auto; font-size:12px; max-height:240px; }
-    footer { padding:8px 16px; border-top:1px solid var(--line); font-size:12px; color:var(--muted); }
-    footer a { color:var(--accent); text-decoration:none; }
+    code { font:400 12px var(--mono); background:rgba(224,162,60,.1); color:var(--amber-soft); padding:1px 5px; border-radius:2px; }
+    .empty { color:var(--muted); font-style:italic; }
+
+    /* ---- agent dock ---- */
+    .agent { flex:1; min-height:0; display:flex; flex-direction:column; padding:18px 16px 0; }
+    .agent-head { display:flex; align-items:baseline; gap:8px; margin-bottom:12px; }
+    .agent-head .t { font:600 15px/1 var(--display); }
+    #agent-log { flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:10px; padding-bottom:12px; }
+    .msg { font-size:13px; border-radius:3px; padding:9px 11px; max-width:95%; animation:rise .25s ease both; }
+    .msg.user { align-self:flex-end; background:var(--panel-2); border:1px solid var(--line-2); }
+    .msg.agent { align-self:flex-start; background:transparent; border-left:2px solid var(--amber); padding-left:12px; }
+    .msg.agent .steps { font:500 11px/1.4 var(--mono); color:var(--muted); margin:6px 0; letter-spacing:.03em; }
+    .msg.agent pre { background:var(--panel); border:1px solid var(--line); border-radius:3px; padding:9px;
+      overflow:auto; font:400 11px/1.5 var(--mono); max-height:200px; margin:6px 0 0; }
+    .composer { border-top:1px solid var(--line); padding:12px 0 14px; }
+    textarea { width:100%; min-height:58px; resize:vertical; box-sizing:border-box; background:var(--panel);
+      color:var(--fg); border:1px solid var(--line-2); border-radius:3px; padding:9px; font:inherit; }
+    textarea:focus { outline:none; border-color:var(--amber); }
+    .composer .row { display:flex; justify-content:flex-end; margin-top:8px; }
+
+    /* ---- events feed ---- */
+    .events { border-top:1px solid var(--line); padding:14px 16px 16px; max-height:34%; overflow:auto;
+      background:rgba(0,0,0,.18); }
+    #events { display:flex; flex-direction:column; gap:0; }
+    .evt { font:400 11px/1.3 var(--mono); color:var(--muted); padding:5px 0; border-bottom:1px solid var(--line);
+      animation:rise .2s ease both; }
+    .evt b { color:var(--amber-soft); font-weight:600; }
+
+    footer { padding:10px 22px; border-top:1px solid var(--line); font:400 11px/1.4 var(--mono); color:var(--muted);
+      letter-spacing:.02em; }
+    footer a { color:var(--amber-soft); text-decoration:none; }
     footer a:hover { text-decoration:underline; }
+
+    @keyframes rise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    ::-webkit-scrollbar { width:9px; height:9px; }
+    ::-webkit-scrollbar-thumb { background:var(--line-2); border-radius:6px; }
   </style>
 </head>
 <body>
+  <div class="grain"></div>
   <header>
-    <h1>Silmari <span class="muted">— reference UI</span></h1>
-    <span class="pill" data-testid="health">checking…</span>
-    <span class="muted" style="margin-left:auto">review-priority signals (실마리), not verdicts</span>
+    <span class="wordmark">Silmari <em>실마리</em></span>
+    <span class="tagline">review console</span>
+    <span class="health" data-testid="health">checking…</span>
   </header>
+
   <main>
-    <aside>
-      <h2>Bots</h2>
+    <aside class="rail">
+      <p class="eyebrow">Bots</p>
       <div id="bots" data-testid="bot-list"></div>
-      <button id="author-open" data-testid="author-open" style="margin-top:10px;width:100%">✎ author a bot (agent)</button>
     </aside>
-    <section>
-      <div id="bot-header"><p class="muted">Select a bot.</p></div>
+
+    <section class="work">
+      <div id="bot-header"><p class="empty">Select a bot, or ask the agent to author one →</p></div>
       <div class="tabs" id="tabs" hidden>
         <button class="tab active" data-tab="review" data-testid="tab-review">Review</button>
         <button class="tab" data-tab="tuning" data-testid="tab-tuning">Tuning</button>
-        <button data-testid="run-now" id="run-now" style="margin-left:auto">Run now</button>
+        <button class="btn ghost run" data-testid="run-now" id="run-now">Run now</button>
       </div>
       <div id="panel"></div>
     </section>
-    <div class="events">
-      <h2>Run events (SSE)</h2>
-      <div id="events" data-testid="event-log"></div>
+
+    <div class="dock">
+      <div class="agent">
+        <div class="agent-head">
+          <span class="t">Agent</span>
+          <span class="eyebrow" style="margin:0">local-only · proposes, you review</span>
+        </div>
+        <div id="agent-log" data-testid="agent-log"></div>
+        <div class="composer">
+          <textarea id="author-input" data-testid="author-input" placeholder="describe a bot — e.g. flag high-value orders"></textarea>
+          <div class="row"><button class="btn" id="author-propose" data-testid="author-propose">Propose →</button></div>
+        </div>
+      </div>
+      <div class="events">
+        <p class="eyebrow">Run events · SSE</p>
+        <div id="events" data-testid="event-log"></div>
+      </div>
     </div>
   </main>
+
   <footer>
     Silmari — free software under
     <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPL-3.0-or-later</a>.
@@ -88,7 +190,9 @@
     async function loadHealth() {
       const { body } = await api("/health");
       const h = document.querySelector('[data-testid="health"]');
-      h.textContent = body?.status === "ok" ? "API: ok" : "API: down";
+      const ok = body?.status === "ok";
+      h.textContent = ok ? "API ok" : "API down";
+      h.classList.toggle("ok", ok);
     }
 
     async function loadBots() {
@@ -96,7 +200,7 @@
       const box = document.getElementById("bots");
       box.innerHTML = "";
       (body || []).forEach((b) => {
-        const node = el(`<div class="bot" data-testid="bot-${b.bot_id}">${esc(b.name)}<br><span class="muted">${esc(b.bot_id)}</span></div>`);
+        const node = el(`<div class="bot" data-testid="bot-${b.bot_id}"><div class="name">${esc(b.name)}</div><div class="id">${esc(b.bot_id)}</div></div>`);
         node.onclick = () => selectBot(b.bot_id);
         box.appendChild(node);
       });
@@ -105,7 +209,7 @@
     async function selectBot(botId) {
       current.botId = botId;
       document.querySelectorAll(".bot").forEach((n) => n.classList.toggle("active", n.dataset.testid === `bot-${botId}`));
-      document.getElementById("bot-header").innerHTML = `<h2 data-testid="selected-bot">${esc(botId)}</h2>`;
+      document.getElementById("bot-header").innerHTML = `<p class="crumb">bot</p><h2 data-testid="selected-bot">${esc(botId)}</h2>`;
       document.getElementById("tabs").hidden = false;
       const { ok, body } = await api(`/v1/bots/${botId}/results`);
       current.runId = ok ? body.run_id : null;
@@ -119,22 +223,22 @@
 
     async function renderReview() {
       const panel = document.getElementById("panel");
-      if (!current.runId) { panel.innerHTML = `<p class="muted" data-testid="no-runs">No completed run yet — click “Run now”.</p>`; return; }
+      if (!current.runId) { panel.innerHTML = `<p class="empty" data-testid="no-runs">No completed run yet — click “Run now”.</p>`; return; }
       const { body } = await api(`/v1/bots/${current.botId}/runs/${current.runId}/cases`);
       const t = body.tally || {};
       const rows = (body.cases || []).map((c) => `
         <tr data-testid="case-${c.case_id}">
           <td><code>${esc(c.case_id)}</code></td>
-          <td>${c.score ?? "—"}</td>
-          <td>${esc(JSON.stringify(c.record))}</td>
+          <td><span class="score">${c.score ?? "—"}</span></td>
+          <td class="mono">${esc(JSON.stringify(c.record))}</td>
           <td><span class="badge ${c.decision}" data-testid="decision-${c.case_id}">${c.decision}</span></td>
           <td class="row-actions">
-            <button data-testid="accept-${c.case_id}" onclick="decide('${c.case_id}','accepted')">Accept</button>
-            <button data-testid="reject-${c.case_id}" onclick="decide('${c.case_id}','rejected')">Reject</button>
+            <button class="btn ghost" data-testid="accept-${c.case_id}" onclick="decide('${c.case_id}','accepted')">Accept</button>
+            <button class="btn ghost" data-testid="reject-${c.case_id}" onclick="decide('${c.case_id}','rejected')">Reject</button>
           </td>
         </tr>`).join("");
       panel.innerHTML = `
-        <p data-testid="tally">accepted ${t.accepted ?? 0} · rejected ${t.rejected ?? 0} · pending ${t.pending ?? 0} / ${t.total ?? 0}</p>
+        <p class="tally" data-testid="tally">accepted ${t.accepted ?? 0} · rejected ${t.rejected ?? 0} · pending ${t.pending ?? 0} / ${t.total ?? 0}</p>
         <table><thead><tr><th>case</th><th>score</th><th>record</th><th>decision</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table>`;
     }
@@ -151,11 +255,11 @@
       const { body } = await api(`/v1/bots/${current.botId}/tuning`);
       const rec = body.recommended;
       const points = (body.points || []).map((p) =>
-        `<tr><td>${p.threshold}</td><td>${p.flagged}</td><td>${p.precision}</td><td>${p.recall}</td><td>${p.f1}</td></tr>`).join("");
+        `<tr><td class="mono">${p.threshold}</td><td class="mono">${p.flagged}</td><td class="mono">${p.precision}</td><td class="mono">${p.recall}</td><td class="mono">${p.f1}</td></tr>`).join("");
       document.getElementById("panel").innerHTML = `
-        <p data-testid="tuning">labeled ${body.labeled} · accepted ${body.accepted} · rejected ${body.rejected}
-        ${rec ? `· <strong>recommended threshold ${rec.threshold}</strong> (F1 ${rec.f1})` : "· no recommendation yet"}</p>
-        <table><thead><tr><th>threshold</th><th>flagged</th><th>precision</th><th>recall</th><th>F1</th></tr></thead>
+        <p class="tally" data-testid="tuning">labeled ${body.labeled} · accepted ${body.accepted} · rejected ${body.rejected}
+        ${rec ? `· <span class="score">recommended cutoff ${rec.threshold}</span>` : "· no recommendation yet"}</p>
+        <table><thead><tr><th>cutoff</th><th>flagged</th><th>precision</th><th>recall</th><th>F1</th></tr></thead>
         <tbody>${points}</tbody></table>`;
     }
 
@@ -184,50 +288,46 @@
     function logEvent(e) {
       const data = JSON.parse(e.data);
       const log = document.getElementById("events");
-      log.prepend(el(`<div class="evt" data-testid="event">${esc(e.type)} · ${esc(data.bot_id || "")} · ${esc(data.run_id || "")}</div>`));
+      log.prepend(el(`<div class="evt" data-testid="event"><b>${esc(e.type)}</b> · ${esc(data.bot_id || "")} · ${esc(data.run_id || "")}</div>`));
     }
     const es = new EventSource("/v1/runs/stream");
     ["run_started", "run_progress", "run_completed", "run_failed"].forEach((t) => es.addEventListener(t, logEvent));
 
-    document.getElementById("author-open").onclick = () => {
-      current.botId = null;
-      document.querySelectorAll(".bot").forEach((n) => n.classList.remove("active"));
-      document.getElementById("bot-header").innerHTML = `<h2 data-testid="author-title">Author a bot (agent)</h2>`;
-      document.getElementById("tabs").hidden = true;
-      renderAuthoring();
-    };
-
-    function renderAuthoring() {
-      document.getElementById("panel").innerHTML = `
-        <p class="muted">Describe the bot; a local-only agent explores the read-only source and proposes a validated pipeline for your review.</p>
-        <textarea id="author-input" data-testid="author-input" placeholder="e.g. flag high-value orders"></textarea>
-        <div class="row-actions" style="margin:8px 0"><button id="author-propose" data-testid="author-propose">Propose</button></div>
-        <div id="proposal" data-testid="proposal"></div>`;
-      document.getElementById("author-propose").onclick = propose;
+    /* ---- agent dock (persistent) ---- */
+    const agentLog = document.getElementById("agent-log");
+    function appendMsg(cls, html) {
+      const node = el(`<div class="msg ${cls}">${html}</div>`);
+      agentLog.appendChild(node);
+      agentLog.scrollTop = agentLog.scrollHeight;
+      return node;
     }
+    appendMsg("agent", `Describe a bot and I'll explore the read-only source, then propose a validated pipeline for you to review. <span class="muted">(propose-only — nothing is activated)</span>`);
 
     async function propose() {
-      const msg = document.getElementById("author-input").value || "propose a bot";
-      const out = document.getElementById("proposal");
-      out.innerHTML = `<p class="muted">proposing…</p>`;
+      const ta = document.getElementById("author-input");
+      const msg = ta.value.trim() || "propose a bot";
+      appendMsg("user", esc(msg));
+      ta.value = "";
+      const out = appendMsg("agent", `<span class="muted">exploring the source…</span>`);
       const { ok, status, body } = await api("/v1/authoring/propose", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: msg }),
       });
       if (status === 503) {
-        out.innerHTML = `<p class="muted">Authoring isn't enabled — run <code>silmari serve --ui --demo-data</code>.</p>`;
+        out.innerHTML = `Authoring is read-only here — start the demo with <code>silmari serve --ui --demo-data</code>.`;
         return;
       }
       const p = body && body.proposal;
-      if (!ok || !p) { out.innerHTML = `<p class="muted">No bot proposed.</p>`; return; }
+      if (!ok || !p) { out.innerHTML = `<span class="muted">No bot proposed.</span>`; return; }
       out.innerHTML = `
-        <p data-testid="proposed-bot">proposed <strong>${esc(p.bot_id)}</strong>
+        <div data-testid="proposed-bot">proposed <strong>${esc(p.bot_id)}</strong>
           <span class="badge ${p.valid ? "accepted" : "rejected"}">${p.valid ? "valid" : "invalid"}</span>
-          ${p.valid ? `· ${p.record_count} signal(s)` : ""}</p>
-        <p class="muted">steps: ${(body.steps || []).map(esc).join(" → ")}</p>
+          ${p.valid ? `· ${p.record_count} signal(s)` : ""}</div>
+        <div class="steps">${(body.steps || []).map(esc).join(" → ")}</div>
         <pre>${esc(p.pipeline)}</pre>
-        <p class="muted">propose-only — review, then register it to activate.</p>`;
+        <div class="muted">propose-only — review, then register it to activate.</div>`;
     }
+    document.getElementById("author-propose").onclick = propose;
 
     loadHealth();
     loadBots();
