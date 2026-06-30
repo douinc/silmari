@@ -2,12 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """A deterministic, offline stand-in "model" for the authoring demo (``silmari serve --demo-data``).
 
-It is **not** a real LLM. Unlike a fixed :class:`~silmari_runtime.agent.scripted.ScriptedLLM` — which
-is stateful and is exhausted after one run — this inspects the conversation on **every** turn, so it
-works on every request, and it **routes the user's ask** (by keyword) to one of a few example bots
-over the seeded demo tables (``orders`` / ``metrics``). The flow it plays — explore the schema,
-sample the table, then propose a validated pipeline — mirrors a real agent. Wire a real ``local/*``
-model for a genuinely live agent.
+Not a real LLM. Unlike a fixed ``ScriptedLLM`` (stateful, exhausts after one run), this inspects the
+conversation each turn — so it works on every request — and routes the user's ask by keyword to one
+of a few example bots over the seeded demo tables (``orders`` / ``metrics``). It plays
+explore-schema → sample → propose, like a real agent; wire a ``local/*`` model for a live agent.
 """
 
 from __future__ import annotations
