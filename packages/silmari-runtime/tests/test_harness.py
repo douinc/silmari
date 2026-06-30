@@ -1,8 +1,10 @@
+import json
 from typing import Any
 
 import pytest
-from silmari_core import MockSource
+from silmari_core import ColumnMasking, MockSource
 from silmari_runtime.agent.harness import AgentSession
+from silmari_runtime.agent.tools import SourceToolbox
 
 
 class FakeLLM:
@@ -63,3 +65,10 @@ def test_max_steps_stops_the_loop():
     result = AgentSession(llm, source, max_steps=3).run("loop forever")
     assert result.stopped_reason == "max_steps"
     assert len(result.steps) == 3
+
+
+def test_data_query_masks_when_policy_configured():
+    source = MockSource({"t": [{"id": 1, "email": "a@b.com"}]}, masking=ColumnMasking(["email"]))
+    out = json.loads(SourceToolbox(source).dispatch("data_query", {"sql": "SELECT * FROM t"}))
+    assert out["rows"][0]["email"] == "***"  # masked into the transcript, not raw
+    assert out["rows"][0]["id"] == 1

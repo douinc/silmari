@@ -85,7 +85,9 @@ class SourceToolbox:
         if name == "data_stats":
             return self._source.stats(arguments["table"], arguments["column"])
         if name == "data_query":
-            rows = self._source.query(arguments["sql"])
+            # Mask query results too (sample/stats already do) — an agent must not pull unmasked
+            # rows into the transcript when a masking policy is configured.
+            rows = [self._source.masking.mask(row) for row in self._source.query(arguments["sql"])]
             if len(rows) > _MAX_ROWS:
                 return {"truncated": True, "shown": _MAX_ROWS, "rows": rows[:_MAX_ROWS]}
             return {"rows": rows}
@@ -108,7 +110,10 @@ class AuthoringToolbox:
 
     def dispatch(self, name: str, arguments: dict[str, Any]) -> str:
         if name == "register_bot":
-            from .register import dispatch_register
+            try:
+                from .register import dispatch_register
 
-            return dispatch_register(arguments, self._source, bots_dir=self._bots_dir)
+                return dispatch_register(arguments, self._source, bots_dir=self._bots_dir)
+            except Exception as exc:  # noqa: BLE001 — tools report errors, never raise into the loop
+                return json.dumps({"error": str(exc)})
         return self._tools.dispatch(name, arguments)

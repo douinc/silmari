@@ -38,6 +38,20 @@ as a trusted-network service:
   exfiltrated via `${...}`), but it does not enforce a destination allow-list — restrict outbound
   egress at the network layer and gate subscription registration behind auth.
 
+## The authoring agent executes proposed pipeline code
+
+To validate an agent-proposed bot, `register_bot` (`silmari_runtime.agent.register`) **imports and
+runs the proposed `pipeline.py` in-process** (scoped read-only source, with a wall-clock timeout).
+That code is **not sandboxed** — the static "no mutating SQL" check is a cheap pre-filter, not a
+boundary; the real data-access guard is the read-only, scoped source. Treat authoring as a
+privileged operation:
+
+- Run the authoring agent only with a **`local/*`** model (enforced) and on data you would let that
+  code touch; the read-only source bounds *data* access, not arbitrary code execution.
+- Review proposed bots before committing/activating them (authoring is propose-only — it writes
+  `bots/<id>/` for human review and does not activate).
+- For untrusted input, run authoring/validation in an isolated environment (container/VM).
+
 ## Responsible use
 
 - Use a dedicated **read-only** database role/credential.

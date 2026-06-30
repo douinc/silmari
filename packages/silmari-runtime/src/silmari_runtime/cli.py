@@ -42,12 +42,13 @@ def _run(args: argparse.Namespace) -> int:
         print(f"unknown bot: {args.bot_id} (available: {sorted(registry)})", file=sys.stderr)
         return 1
     demo_dir: str | None = None
-    if args.source is None:
-        source_url, demo_dir = _demo_source()
-    else:
-        source_url = args.source
-    source = connect(source_url)
+    source = None
     try:
+        if args.source is None:
+            source_url, demo_dir = _demo_source()
+        else:
+            source_url = args.source
+        source = connect(source_url)
         store = ResultStore(args.store)
         run = run_bot(registry[args.bot_id], source, store, trigger="manual")
         print(f"run {run.run_id}: {run.status} — {len(run.data)} signal(s)")
@@ -55,7 +56,8 @@ def _run(args: argparse.Namespace) -> int:
             print(run.summary)
         return 0
     finally:
-        source.close()
+        if source is not None:
+            source.close()
         if demo_dir:
             shutil.rmtree(demo_dir, ignore_errors=True)
 
@@ -78,8 +80,12 @@ def _serve(args: argparse.Namespace) -> int:  # pragma: no cover - blocking serv
     from .api.app import create_app
 
     source = connect(args.source) if args.source else None
-    app = create_app(bots_dir=args.bots_dir, store=ResultStore(args.store), source=source)
-    uvicorn.run(app, host=args.host, port=args.port)
+    try:
+        app = create_app(bots_dir=args.bots_dir, store=ResultStore(args.store), source=source)
+        uvicorn.run(app, host=args.host, port=args.port)
+    finally:
+        if source is not None:
+            source.close()
     return 0
 
 
@@ -107,20 +113,26 @@ _DEMO_RULESET = {
 def _demo(args: argparse.Namespace) -> int:
     from .ruleset import evaluate, validate_ruleset
 
-    url, tmpdir = _demo_source()
-    source = connect(url)
+    source = None
+    tmpdir = None
     try:
+        url, tmpdir = _demo_source()
+        source = connect(url)
         rows = source.query("SELECT * FROM metrics")
         report = validate_ruleset(_DEMO_RULESET)
-        assert report.doc is not None
+        if report.doc is None:
+            print("demo ruleset is invalid", file=sys.stderr)
+            return 1
         signals = evaluate(report.doc, rows)
         print(f"Silmari demo — {len(signals)} review-priority signal(s) from {len(rows)} rows:")
         for sig in signals:
             print(f"  - {sig.target_id}: {sig.label}  [{sig.note}]")
         return 0
     finally:
-        source.close()
-        shutil.rmtree(tmpdir, ignore_errors=True)
+        if source is not None:
+            source.close()
+        if tmpdir is not None:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:

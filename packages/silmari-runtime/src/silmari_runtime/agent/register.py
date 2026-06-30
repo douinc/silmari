@@ -14,8 +14,7 @@ import re
 import shutil
 import sys
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FuturesTimeout
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -95,43 +94,63 @@ def _static_errors(proposal: BotProposal) -> list[str]:
     return errors
 
 
-def _validate_run(source: DataSource, proposal: BotProposal) -> tuple[list[str], int, str]:
-    result: Any = None
+def _validate_run(
+    source: DataSource, proposal: BotProposal, *, timeout: float = _VALIDATE_TIMEOUT_S
+) -> tuple[list[str], int, str]:
+    holder: dict[str, Any] = {}
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "pipeline_under_validation.py"
         path.write_text(proposal.pipeline_source, encoding="utf-8")
         spec = importlib.util.spec_from_file_location(f"silmari_validate_{proposal.bot_id}", path)
         if spec is None or spec.loader is None:
             return ["could not load pipeline"], 0, ""
+        loader = spec.loader
         module = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = module
-        try:
+
+        def _worker() -> None:
             try:
-                spec.loader.exec_module(module)
+                loader.exec_module(module)  # import-time code runs here too, under the timeout
             except Exception as exc:  # noqa: BLE001
-                return [f"import error: {exc}"], 0, ""
+                holder["error"] = f"import error: {exc}"
+                return
             run = getattr(module, "run", None)
             if not callable(run):
-                return ["pipeline has no run(context)"], 0, ""
+                holder["error"] = "pipeline has no run(context)"
+                return
             scoped = source.scoped(DataAccess(tables=list(proposal.tables)), run_id="validate")
             ctx = Context(source=scoped, config={}, run_id="validate", as_of=proposal.as_of)
             try:
-                with ThreadPoolExecutor(max_workers=1) as pool:
-                    result = pool.submit(run, ctx).result(timeout=_VALIDATE_TIMEOUT_S)
-            except FuturesTimeout:
-                return [f"pipeline exceeded {_VALIDATE_TIMEOUT_S:.0f}s"], 0, ""
+                holder["result"] = run(ctx)
             except PermissionError as exc:
-                return [f"read-only/scope violation: {exc}"], 0, ""
+                holder["error"] = f"read-only/scope violation: {exc}"
             except Exception as exc:  # noqa: BLE001
-                return [f"runtime error: {exc}"], 0, ""
-        finally:
-            sys.modules.pop(spec.name, None)
+                holder["error"] = f"runtime error: {exc}"
 
+        # Daemon thread: a hung proposal (incl. import-time code) can't block the timeout or process
+        # exit. A thread can't be killed, so a runaway proposal leaks until exit — true isolation
+        # needs a subprocess (see SECURITY.md). Validation passing is a smoke test, not a sandbox.
+        thread = threading.Thread(target=_worker, name=f"validate-{proposal.bot_id}", daemon=True)
+        thread.start()
+        thread.join(timeout)
+        sys.modules.pop(spec.name, None)
+        if thread.is_alive():
+            return [f"pipeline exceeded {timeout:g}s"], 0, ""
+
+    if "error" in holder:
+        return [str(holder["error"])], 0, ""
+    result = holder.get("result")
     if not isinstance(result, BotResult) or not isinstance(result.data, list):
         return ["run(context) must return a BotResult whose data is a list"], 0, ""
-    serialized = json.dumps(result.data, default=str) + result.summary
-    if NOT_A_VERDICT not in serialized:
-        return ["output is missing the not-a-verdict note (use signal()/result())"], 0, ""
+    if result.data:
+        if not all(isinstance(r, dict) and r.get("note") == NOT_A_VERDICT for r in result.data):
+            return (
+                ["every emitted record must carry the not-a-verdict note (use signal()/result())"],
+                0,
+                "",
+            )
+    elif NOT_A_VERDICT not in result.summary:
+        return ["output is missing the not-a-verdict note (use result())"], 0, ""
     return [], len(result.data), result.summary
 
 
@@ -201,6 +220,7 @@ def propose_bot(
     *,
     bots_dir: str | Path = "bots",
     overwrite: bool = False,
+    timeout: float = _VALIDATE_TIMEOUT_S,
 ) -> ProposedBot:
     errors = _static_errors(proposal)
     if errors:
@@ -212,7 +232,7 @@ def propose_bot(
             valid=False, bot_id=proposal.bot_id, errors=[f"{bot_dir} already exists"]
         )
 
-    errors, count, summary = _validate_run(source, proposal)
+    errors, count, summary = _validate_run(source, proposal, timeout=timeout)
     if errors:
         return ProposedBot(valid=False, bot_id=proposal.bot_id, errors=errors)
 

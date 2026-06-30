@@ -2,6 +2,8 @@ import json
 
 from silmari_core import MockSource
 from silmari_runtime.agent.register import BotProposal, dispatch_register, propose_bot
+from silmari_runtime.agent.tools import AuthoringToolbox
+from silmari_runtime.signal import NOT_A_VERDICT
 
 VALID_PIPELINE = """
 from silmari_runtime.context import BotResult, Context
@@ -93,3 +95,64 @@ def test_dispatch_register_returns_json(tmp_path):
     assert out["valid"] is True
     assert out["bot_id"] == "d-bot"
     assert "next_steps" in out
+
+
+def test_propose_times_out_on_a_hanging_pipeline(tmp_path):
+    import time
+
+    hang = "import time\ndef run(context):\n    time.sleep(30)\n"
+    start = time.perf_counter()
+    proposed = propose_bot(
+        BotProposal(bot_id="hang", pipeline_source=hang, tables=["events"]),
+        MockSource({"events": []}),
+        bots_dir=tmp_path,
+        timeout=0.3,
+    )
+    elapsed = time.perf_counter() - start
+    assert not proposed.valid
+    assert any("exceeded" in e for e in proposed.errors)
+    assert elapsed < 5  # the timeout bounded the call; it did not block on the hung thread
+
+
+def test_propose_times_out_on_import_time_hang(tmp_path):
+    import time
+
+    # module-level (import-time) hang must also be bounded by the timeout
+    hang = "import time\ntime.sleep(30)\ndef run(context):\n    pass\n"
+    start = time.perf_counter()
+    proposed = propose_bot(
+        BotProposal(bot_id="imp", pipeline_source=hang, tables=["events"]),
+        MockSource({"events": []}),
+        bots_dir=tmp_path,
+        timeout=0.3,
+    )
+    assert not proposed.valid
+    assert any("exceeded" in e for e in proposed.errors)
+    assert time.perf_counter() - start < 5
+
+
+def test_propose_rejects_verdict_records_even_with_note_in_summary(tmp_path):
+    # records lack the note even though the summary hand-inserts it -> rejected (structural check)
+    bad = (
+        "from silmari_runtime.context import BotResult\n"
+        "def run(context):\n"
+        f"    return BotResult(data=[{{'id': 'x'}}], summary={NOT_A_VERDICT!r})\n"
+    )
+    proposed = propose_bot(
+        BotProposal(bot_id="verdict", pipeline_source=bad, tables=["events"]),
+        MockSource({"events": [{"id": 1}]}),
+        bots_dir=tmp_path,
+    )
+    assert not proposed.valid
+    assert any("not-a-verdict" in e for e in proposed.errors)
+
+
+def test_register_tool_returns_error_on_bad_args(tmp_path):
+    # malformed tool args (tables not a list) must be reported, never raised into the loop
+    toolbox = AuthoringToolbox(MockSource({"events": []}), bots_dir=str(tmp_path))
+    out = json.loads(
+        toolbox.dispatch(
+            "register_bot", {"bot_id": "b", "pipeline_source": "def run(c): ...", "tables": 5}
+        )
+    )
+    assert "error" in out

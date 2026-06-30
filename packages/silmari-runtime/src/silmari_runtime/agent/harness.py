@@ -2,8 +2,9 @@
 
 The loop sends the conversation + tool schemas to a chat model, executes any tool calls, feeds the
 results back, and repeats until the model answers with no tool call (or ``max_steps`` is hit). It
-**refuses any non-``local/*`` model** so the source data the tools expose never leaves the trust
-boundary.
+refuses any model not named ``local/*`` — a naming convention, not a transport guarantee (see
+SECURITY.md): a ``local/*`` model is trusted to run on-prem, so the (possibly sensitive) row data
+the tools return stays inside the boundary. Do not register a remote model under a ``local/`` name.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from silmari_core import DataSource
+from silmari_core import DataSource, is_local_model
 
 from .tools import AuthoringToolbox, SourceToolbox
 
@@ -77,10 +78,10 @@ class AgentSession:
         authoring: bool = False,
         bots_dir: str = "bots",
     ) -> None:
-        if not model.startswith("local/"):
+        if not is_local_model(model):
             raise ValueError(
-                f"agent requires a local/* model (got {model!r}); source data must not leave the "
-                "trust boundary"
+                f"agent requires a local/* model (got {model!r}); a non-local model would receive "
+                "source rows returned by the tools"
             )
         self.llm = llm
         self.model = model
