@@ -51,6 +51,11 @@ privileged operation:
 - Review proposed bots before committing/activating them (authoring is propose-only — it writes
   `bots/<id>/` for human review and does not activate).
 - For untrusted input, run authoring/validation in an isolated environment (container/VM).
+- Over HTTP, authoring is **gated**: the `/v1/authoring` endpoint is inert unless the app is built
+  with `create_app(authoring_llm=...)`. `silmari serve --demo-data` wires a deterministic
+  `ScriptedLLM`, so the demo only ever runs the fixed pipeline it scripts. Exposing authoring with a
+  **real** model means a network caller's prompt drives model-written code that the validator
+  executes — only do that behind authentication and in an isolated environment.
 
 ## Responsible use
 

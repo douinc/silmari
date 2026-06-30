@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from .agent import AgentResult, AgentSession
+from .agent import AgentResult, AgentSession, ScriptedLLM
 from .agent.conversation import ConversationStore
 from .agent.register import BotProposal, propose_bot
 from .context import BotResult, Context
@@ -53,6 +53,7 @@ __all__ = [
     "ReviewStore",
     "RulesetDoc",
     "RulesetError",
+    "ScriptedLLM",
     "Signal",
     "StoredRun",
     "Subscription",

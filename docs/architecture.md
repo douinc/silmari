@@ -64,10 +64,13 @@ Every guarantee is enforced in the base class, so no adapter can bypass it:
 - **`store.py`** — run lifecycle (running/completed/failed) + persisted signals.
 - **`sinks.py`** — an in-process `EventBus` (drives SSE) + webhook subscriptions.
 - **`review.py`** — per-case accept/reject decisions + threshold tuning (precision/recall/F1).
-- **`api/`** — a FastAPI app (results, runs + SSE, review, subscriptions, admin, and a read-only
-  data browser at `/v1/data`), via `create_app`.
+- **`api/`** — a FastAPI app (results, runs + SSE, review, subscriptions, admin, a read-only data
+  browser at `/v1/data`, and a gated propose-only authoring endpoint at `/v1/authoring`), via
+  `create_app`.
 - **`agent/`** — a local-only tool-use loop that explores the read-only source and proposes a
-  validated bot (`register_bot`).
+  validated bot (`register_bot`); `ScriptedLLM` drives it deterministically/offline for demos and
+  tests. Exposed over HTTP only when `create_app(authoring_llm=...)` is set (`serve --demo-data`
+  wires the scripted demo).
 - **`scaffold.py` / `cli.py`** — `silmari new-bot/run/serve/demo`.
 
 ## Bot lifecycle

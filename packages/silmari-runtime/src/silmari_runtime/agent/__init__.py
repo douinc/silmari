@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from .harness import AgentResult, AgentSession, AgentStep, ChatLLM
+from .scripted import ScriptedLLM, say, tool_call
 from .tools import AuthoringToolbox, SourceToolbox
 
 __all__ = [
@@ -13,5 +14,8 @@ __all__ = [
     "AgentStep",
     "AuthoringToolbox",
     "ChatLLM",
+    "ScriptedLLM",
     "SourceToolbox",
+    "say",
+    "tool_call",
 ]

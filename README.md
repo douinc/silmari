@@ -2,6 +2,8 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+**English** · [한국어](README.ko.md)
+
 **Define rules over a read-only data source; Silmari safely derives _실마리_ — review-priority
 leads (signals) — for a human to decide.**
 
@@ -56,6 +58,9 @@ and *propose* a validated bot for you to review. Once registered, the **schedule
 cron (or you trigger it on demand); each run executes read-only · scoped · audited, derives **실마리**
 (review-priority signals, never verdicts), delivers them, and a reviewer's accept/reject decisions
 feed **threshold tuning** back into the next run.
+
+> Try the agent live: `silmari serve --ui --demo-data` ships an offline, scripted authoring demo
+> under **"author a bot"** in the reference UI (no model to install).
 
 ## Two packages
 
