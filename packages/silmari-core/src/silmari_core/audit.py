@@ -7,6 +7,7 @@ Backed by SQLAlchemy; defaults to a shared in-memory SQLite database.
 
 from __future__ import annotations
 
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,9 @@ class AuditLog:
         else:
             self._engine = create_engine(url, future=True)
         AuditBase.metadata.create_all(self._engine)
+        # The in-memory default shares one connection (StaticPool); a scheduler shares one
+        # AuditLog across its thread pool. Serialize writes so audit records are never lost.
+        self._lock = threading.RLock()
 
     def record(
         self,
@@ -75,7 +79,7 @@ class AuditLog:
         duration_ms: int = 0,
         outcome: str = "ok",
     ) -> None:
-        with Session(self._engine) as session:
+        with self._lock, Session(self._engine) as session:
             session.add(
                 AuditRow(
                     ts=_now_iso(),
@@ -91,7 +95,7 @@ class AuditLog:
 
     def entries(self) -> list[dict[str, Any]]:
         """Return all audit rows (oldest first) as plain dicts — for inspection and tests."""
-        with Session(self._engine) as session:
+        with self._lock, Session(self._engine) as session:
             rows = session.scalars(select(AuditRow).order_by(AuditRow.id)).all()
             return [
                 {

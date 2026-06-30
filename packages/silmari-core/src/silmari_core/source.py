@@ -12,6 +12,7 @@ be fooled by a table name in a comment or string literal.
 
 from __future__ import annotations
 
+import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -59,6 +60,9 @@ class DataSource(ABC):
         self.audit = audit or AuditLog()
         self._dialect = dialect
         self._masking: MaskingPolicy = masking or NoMasking()
+        # Serialize backend access: one source may be shared across concurrent runs (scheduler
+        # thread pool, daemon start_run). A single DB connection is not safe for concurrent use.
+        self._lock = threading.RLock()
 
     @classmethod
     def connect(
@@ -91,7 +95,8 @@ class DataSource(ABC):
             raise
         start = time.perf_counter()
         try:
-            rows = self._execute(sql)
+            with self._lock:
+                rows = self._execute(sql)
         except Exception:
             duration_ms = int((time.perf_counter() - start) * 1000)
             self.audit.record(
@@ -122,7 +127,8 @@ class DataSource(ABC):
         return [self._masking.mask(row) for row in rows]
 
     def schema(self, table: str | None = None, *, run_id: str = "") -> Any:
-        result = self._schema(table)
+        with self._lock:
+            result = self._schema(table)
         self.audit.record("schema", run_id=run_id, target=table or "")
         return result
 
