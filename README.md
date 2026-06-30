@@ -2,6 +2,8 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+**English** · [한국어](README.ko.md)
+
 **Define rules over a read-only data source; Silmari safely derives _실마리_ — review-priority
 leads (signals) — for a human to decide.**
 

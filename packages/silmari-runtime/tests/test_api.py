@@ -276,3 +276,10 @@ def test_authoring_disabled_without_llm_returns_503():
         "/v1/authoring/propose", json={"message": "x"}
     )
     assert resp.status_code == 503  # gated: no authoring_llm configured
+
+
+def test_authoring_without_source_returns_503():
+    from silmari_runtime.agent.scripted import ScriptedLLM, say
+
+    client = _client(authoring_llm=ScriptedLLM([say("x")]))  # llm set, but no data source
+    assert client.post("/v1/authoring/propose", json={"message": "x"}).status_code == 503

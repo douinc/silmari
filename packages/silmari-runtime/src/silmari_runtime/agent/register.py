@@ -17,6 +17,7 @@ import shutil
 import sys
 import tempfile
 import threading
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -103,7 +104,10 @@ def _validate_run(
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "pipeline_under_validation.py"
         path.write_text(proposal.pipeline_source, encoding="utf-8")
-        spec = importlib.util.spec_from_file_location(f"silmari_validate_{proposal.bot_id}", path)
+        # Unique module name: two concurrent validations of the same bot_id (e.g. the demo's fixed
+        # id, now reachable via HTTP) must not collide on the global sys.modules key.
+        mod_name = f"silmari_validate_{proposal.bot_id}_{uuid.uuid4().hex}"
+        spec = importlib.util.spec_from_file_location(mod_name, path)
         if spec is None or spec.loader is None:
             return ["could not load pipeline"], 0, ""
         loader = spec.loader
