@@ -2,7 +2,7 @@
 name = "silmari-core"
 version = "0.1.0"
 description = "Governed, read-only, scoped, audited data access for LLM agents."
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = "AGPL-3.0-or-later"
 authors = [{ name = "Dou Inc." }]
 dependencies = [

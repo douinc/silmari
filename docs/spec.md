@@ -259,7 +259,7 @@ Mono-repo, two packages (dbt-core / LiteLLM precedent); `silmari-core` ships sta
 
 ## 8. Tech stack
 
-- **Python 3.11+**, packaged with **uv**.
+- **Python 3.14+**, packaged with **uv**.
 - **silmari-core:** `sqlglot` (read-only guard + table extraction), `sqlalchemy` (audit/result
   stores), DB drivers (`duckdb`, stdlib `sqlite3`, `psycopg` for Postgres via the `postgres` extra), `httpx` (LLM via a
   LiteLLM-compatible proxy); a built-in regex redaction floor + a `SensitiveFilter` protocol for a
