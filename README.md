@@ -28,7 +28,14 @@ model, and keep no audit trail. Silmari is **safe by default**:
 
 ```mermaid
 flowchart LR
-    rules["ruleset.json<br/>or pipeline.py"]
+    subgraph author["author a bot — once"]
+        direction TB
+        a1["hand-write<br/>manifest + pipeline / ruleset"]
+        a2["silmari new-bot<br/>(scaffold)"]
+        a3["authoring agent<br/>local-only · propose-only"]
+    end
+    bot["registered bot<br/>pipeline.py / ruleset.json"]
+    reg["registry + scheduler"]
     src[("read-only<br/>data source")]
     engine{{"Silmari engine<br/>read-only · scoped<br/>audited · redacted"}}
     signals["실마리<br/>review-priority signals<br/>(never verdicts)"]
@@ -36,7 +43,11 @@ flowchart LR
     human(["human reviewer<br/>accept / reject"])
     tuning["threshold tuning<br/>precision · recall · F1"]
 
-    rules -->|define| engine
+    a1 --> bot
+    a2 --> bot
+    a3 -->|you review| bot
+    bot --> reg
+    reg -->|cron / on demand| engine
     src -. read-only .-> engine
     engine -->|derive| signals
     signals --> sinks --> human
@@ -48,9 +59,12 @@ flowchart LR
     class src store
 ```
 
-You bring the **rules** (a declarative ruleset, or a Python bot). Silmari brings the **safe
-execution + derivation + review** — and, optionally, a local-only agent that helps author bots by
-exploring the (read-only) source and proposing a validated pipeline.
+A **bot is authored once** — hand-write a `manifest.yaml` + `pipeline.py` / `ruleset.json`, scaffold
+one with `silmari new-bot`, or let the **local-only authoring agent** explore the read-only source
+and *propose* a validated bot for you to review. Once registered, the **scheduler** runs it on a
+cron (or you trigger it on demand); each run executes read-only · scoped · audited, derives **실마리**
+(review-priority signals, never verdicts), delivers them, and a reviewer's accept/reject decisions
+feed **threshold tuning** back into the next run.
 
 ## Two packages
 
