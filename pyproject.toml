@@ -4,7 +4,7 @@
 name = "silmari-workspace"
 version = "0"
 description = "Silmari monorepo workspace root."
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     "silmari-core",
     "silmari-runtime",
@@ -27,13 +27,13 @@ dev = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 ignore_missing_imports = true
 warn_unused_ignores = true
 

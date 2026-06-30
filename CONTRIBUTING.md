@@ -13,7 +13,7 @@ rule *content* is intentionally **out of scope** here; keep it in your own priva
 ## Dev setup
 
 ```bash
-# Python 3.11+, managed with uv
+# Python 3.14+, managed with uv
 uv sync
 uv run pytest -q          # everything runs offline (demo backend, LLM off)
 uv run ruff check .

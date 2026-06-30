@@ -50,7 +50,11 @@ def _run(args: argparse.Namespace) -> int:
             source_url, demo_dir = _demo_source()
         else:
             source_url = args.source
-        source = connect(source_url)
+        try:
+            source = connect(source_url)
+        except Exception as exc:  # noqa: BLE001 — a bad source is user error; show it, not a traceback
+            print(f"error: could not open data source {source_url!r}: {exc}", file=sys.stderr)
+            return 1
         store = ResultStore(args.store)
         run = run_bot(registry[args.bot_id], source, store, trigger="manual")
         print(f"run {run.run_id}: {run.status} — {len(run.data)} signal(s)")
@@ -85,7 +89,11 @@ def _serve(args: argparse.Namespace) -> int:  # pragma: no cover - blocking serv
     demo_dir = None
     try:
         if args.source:
-            source = connect(args.source)
+            try:
+                source = connect(args.source)
+            except Exception as exc:  # noqa: BLE001 — a bad source is user error; show it cleanly
+                print(f"error: could not open data source {args.source!r}: {exc}", file=sys.stderr)
+                return 1
         elif args.demo_data:
             url, demo_dir = _demo_source()
             source = connect(url)

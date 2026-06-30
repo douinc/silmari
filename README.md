@@ -55,11 +55,12 @@ exploring the (read-only) source and proposing a validated pipeline.
 ## Two packages
 
 - **`silmari-core`** — the governance library: safe, read-only, scoped, audited, redacted data
-  access for LLM agents (sqlglot guard, DB-level read-only DuckDB/SQLite adapters, audit, masking,
-  local-first LLM gate). Drop it into any stack.
+  access for LLM agents (sqlglot guard, DB-level read-only DuckDB / SQLite / Postgres adapters,
+  audit, masking, local-first LLM gate). Drop it into any stack.
 - **`silmari-runtime`** — batteries-included framework on top of core: bot registry + scheduler,
-  the Signal (실마리) model, a declarative **ruleset engine**, delivery (event bus / webhooks / SSE),
-  a human **review loop + threshold tuning**, a FastAPI app, and a local-only **authoring agent**.
+  the Signal (실마리) model (signals and `kind: prediction` probabilities), a declarative **ruleset
+  engine**, delivery (event bus / webhooks / SSE), a human **review loop + threshold tuning**, and a
+  FastAPI app — with a read-only **data browser** (`/v1/data`) and a local-only **authoring agent**.
 
 ## Install
 
@@ -75,15 +76,18 @@ uv sync
 uv run pytest -q
 ```
 
-Python 3.11+.
+Python 3.14+.
 
 ## Quickstart
 
 ```bash
-uv run silmari demo                 # self-contained: rules over synthetic data -> signals
-uv run silmari new-bot my-bot       # scaffold a runnable bot in ./bots/my-bot
-uv run silmari run my-bot --source duckdb:///data.duckdb
-uv run silmari serve                # FastAPI at http://localhost:8000/docs
+# try it now — self-contained, synthetic data, no setup:
+uv run silmari demo                       # rules over synthetic data -> review-priority signals
+uv run silmari serve --ui --demo-data     # API + a reference UI at http://localhost:8000 (seeded)
+
+# build your own bot:
+uv run silmari new-bot my-bot             # scaffold ./bots/my-bot — a template; edit pipeline.py
+uv run silmari run my-bot --source duckdb:///your.duckdb   # then run it against your own data
 ```
 
 Governance library (`silmari-core`):
